@@ -5,6 +5,8 @@ import Avatar from "@/components/ui/Avatar";
 import { theme } from "@/lib/theme";
 import { Participant } from "@/lib/types";
 
+const TRACK_COLOR = "rgba(17,17,17,0.08)";
+
 const OTHER_BAR_COLORS = [
   theme.colors.pink,
   theme.colors.green,
@@ -24,14 +26,12 @@ export default function LeaderboardRow({
   const isFirst = rank === 1;
   const isYou = participant.isYou;
 
-  const barColor = isFirst
-    ? theme.colors.lime
-    : OTHER_BAR_COLORS[(rank - 2) % OTHER_BAR_COLORS.length];
-  const trackColor = isFirst
-    ? "rgba(255,255,255,0.6)"
-    : isYou
-      ? "rgba(255,255,255,0.55)"
-      : "rgba(17,17,17,0.08)";
+  // Colored cards (lime / lavender) get an ink fill so the bar always reads;
+  // plain rows rotate through the accent palette.
+  const barColor =
+    isFirst || isYou
+      ? theme.colors.ink
+      : OTHER_BAR_COLORS[(rank - 2) % OTHER_BAR_COLORS.length];
 
   const ratio = maxSteps > 0 ? Math.max(0.04, participant.steps / maxSteps) : 0;
 
@@ -45,7 +45,12 @@ export default function LeaderboardRow({
     <View style={[styles.row, cardStyle]}>
       <Text style={styles.rank}>{rank}</Text>
 
-      <Avatar seed={participant.address} size={44} style={styles.avatar} />
+      <Avatar
+        seed={participant.address}
+        label={participant.name}
+        size={44}
+        style={styles.avatar}
+      />
 
       <View style={styles.nameCol}>
         <View style={styles.nameLine}>
@@ -59,7 +64,7 @@ export default function LeaderboardRow({
             </View>
           ) : null}
         </View>
-        <View style={[styles.track, { backgroundColor: trackColor }]}>
+        <View style={styles.track}>
           <View
             style={[
               styles.fill,
@@ -82,31 +87,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
   },
   firstCard: {
     backgroundColor: theme.colors.lime,
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    borderRadius: theme.radius.card,
   },
   youCard: {
     backgroundColor: theme.colors.lavender,
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    borderRadius: theme.radius.card,
   },
-  plainRow: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
+  plainRow: {},
   rank: {
     fontFamily: theme.font.bold,
     fontSize: 17,
     color: theme.colors.ink,
-    width: 22,
+    width: 24,
   },
   avatar: {
-    marginLeft: 4,
     marginRight: 12,
   },
   nameCol: {
@@ -140,6 +139,7 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     overflow: "hidden",
+    backgroundColor: TRACK_COLOR,
   },
   fill: {
     height: 6,
@@ -150,12 +150,12 @@ const styles = StyleSheet.create({
   },
   steps: {
     fontFamily: theme.font.bold,
-    fontSize: 20,
+    fontSize: 17,
     color: theme.colors.ink,
   },
   stepsLabel: {
     fontFamily: theme.font.medium,
-    fontSize: 12,
+    fontSize: 11,
     color: theme.colors.muted,
   },
 });

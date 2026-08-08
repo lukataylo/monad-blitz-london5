@@ -19,15 +19,27 @@ import {
 import * as Clipboard from "expo-clipboard";
 import { formatEther } from "viem";
 
-const MOCK_MON_USD = 16.84; // mock rate for the ≈ $ line
-
 type JoinScreenProps = {
     challenge?: Challenge;
     hasJoined?: boolean;
     joining?: boolean;
     onJoin?: () => void;
     inviteUrl?: string;
+    walletAddress?: string | null;
+    walletBalance?: bigint;
+    onCopyAddress?: () => void;
 };
+
+/** Wei -> "1.5" (≤2 decimals, thousands separators, no trailing zeros). */
+function formatMon(wei: bigint): string {
+    return Number(formatEther(wei)).toLocaleString(undefined, {
+        maximumFractionDigits: 2,
+    });
+}
+
+function shortAddress(addr: string): string {
+    return `${addr.slice(0, 4)}…${addr.slice(-2)}`;
+}
 
 function CircleButton({ children }: { children: React.ReactNode }) {
     return (
@@ -52,25 +64,37 @@ export default function JoinScreen({
     joining = false,
     onJoin = () => {},
     inviteUrl = "walkthewalk.mon/10k",
+    walletAddress = null,
+    walletBalance,
+    onCopyAddress = () => {},
 }: JoinScreenProps) {
-    const [copied, setCopied] = useState(false);
-    const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [linkCopied, setLinkCopied] = useState(false);
+    const [addressCopied, setAddressCopied] = useState(false);
+    const linkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const addressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
         return () => {
-            if (copyTimer.current) clearTimeout(copyTimer.current);
+            if (linkTimer.current) clearTimeout(linkTimer.current);
+            if (addressTimer.current) clearTimeout(addressTimer.current);
         };
     }, []);
 
-    const stakeMon = formatEther(challenge.stake);
-    const potMon = formatEther(challenge.pot);
-    const stakeUsd = (Number(stakeMon) * MOCK_MON_USD).toFixed(2);
+    const stakeMon = formatMon(challenge.stake);
+    const potMon = formatMon(challenge.pot);
     const friendCount = challenge.participants.length;
 
-    const handleCopy = async () => {
+    const handleCopyLink = async () => {
         await Clipboard.setStringAsync(inviteUrl);
-        setCopied(true);
-        if (copyTimer.current) clearTimeout(copyTimer.current);
-        copyTimer.current = setTimeout(() => setCopied(false), 1500);
+        setLinkCopied(true);
+        if (linkTimer.current) clearTimeout(linkTimer.current);
+        linkTimer.current = setTimeout(() => setLinkCopied(false), 1500);
+    };
+
+    const handleCopyAddress = () => {
+        onCopyAddress();
+        setAddressCopied(true);
+        if (addressTimer.current) clearTimeout(addressTimer.current);
+        addressTimer.current = setTimeout(() => setAddressCopied(false), 1500);
     };
 
     const handleShare = async () => {
@@ -88,43 +112,61 @@ export default function JoinScreen({
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Top bar */}
+                {/* Top bar: wallet pill (left) + menu (right) */}
                 <View style={styles.topBar}>
-                    <CircleButton>
-                        <Ionicons name="chevron-back" size={22} color={theme.colors.ink} />
-                    </CircleButton>
+                    {walletAddress ? (
+                        <Pressable
+                            onPress={handleCopyAddress}
+                            style={({ pressed }) => [styles.walletPill, pressed && styles.pressed]}
+                        >
+                            <Text style={styles.walletText} numberOfLines={1}>
+                                {addressCopied
+                                    ? "Copied ✓"
+                                    : `${shortAddress(walletAddress)}${
+                                          walletBalance !== undefined
+                                              ? ` · ${formatMon(walletBalance)} MON`
+                                              : ""
+                                      }`}
+                            </Text>
+                            <Feather
+                                name={addressCopied ? "check" : "copy"}
+                                size={14}
+                                color={theme.colors.muted}
+                            />
+                        </Pressable>
+                    ) : (
+                        <View />
+                    )}
                     <CircleButton>
                         <Ionicons name="ellipsis-horizontal" size={20} color={theme.colors.ink} />
                     </CircleButton>
                 </View>
 
-                {/* Hero blob */}
-                <View style={styles.heroWrap}>
-                    <View style={styles.hero}>
-                        <Text style={styles.heroLabel}>10K Club</Text>
-                        <View style={styles.potRow}>
-                            <Text style={styles.potNumber}>{potMon}</Text>
-                            <Text style={styles.potUnit}> MON</Text>
-                        </View>
-                        <Text style={styles.heroTagline}>Walk more.{"\n"}Win together.</Text>
-                        <View style={styles.shoeSticker}>
-                            <Text style={styles.shoeEmoji}>👟</Text>
-                        </View>
+                {/* Hero card */}
+                <View style={styles.hero}>
+                    <Text style={styles.heroLabel}>10K CLUB</Text>
+                    <View style={styles.potRow}>
+                        <Text style={styles.potNumber}>{potMon}</Text>
+                        <Text style={styles.potUnit}> MON</Text>
+                    </View>
+                    <Text style={styles.heroTagline}>Walk more.{"\n"}Win together.</Text>
+                    <View style={styles.shoeSticker}>
+                        <Text style={styles.shoeEmoji}>👟</Text>
                     </View>
                 </View>
 
                 {/* Chips row */}
                 <View style={styles.chipsRow}>
                     <Chip
-                        icon={<Ionicons name="calendar-outline" size={15} color={theme.colors.ink} />}
+                        icon={<Ionicons name="calendar-outline" size={18} color={theme.colors.ink} />}
                         label="7 days"
                     />
                     <Chip
-                        icon={<Ionicons name="people-outline" size={15} color={theme.colors.ink} />}
+                        icon={<Ionicons name="people-outline" size={18} color={theme.colors.ink} />}
                         label={`${friendCount} friends`}
                     />
                     <Chip
-                        icon={<Feather name="arrow-down" size={15} color={theme.colors.ink} />}
+                        icon={<Feather name="arrow-down" size={18} color={theme.colors.ink} />}
                         label="Bottom walker loses"
                     />
                 </View>
@@ -135,10 +177,11 @@ export default function JoinScreen({
                         <Avatar
                             key={p.address}
                             seed={p.address}
-                            size={48}
+                            label={p.name}
+                            size={44}
                             style={{
                                 ...styles.avatar,
-                                marginLeft: i === 0 ? 0 : -12,
+                                marginLeft: i === 0 ? 0 : -10,
                                 zIndex: challenge.participants.length - i,
                             }}
                         />
@@ -150,12 +193,11 @@ export default function JoinScreen({
 
                 {/* Stake card */}
                 <View style={styles.stakeCard}>
-                    <View style={styles.coinSticker}>
-                        <Text style={styles.coinDiamond}>◆</Text>
+                    <Text style={styles.stakeLabel}>YOUR STAKE</Text>
+                    <View style={styles.stakeRow}>
+                        <Text style={styles.stakeAmount}>{stakeMon}</Text>
+                        <Text style={styles.stakeUnit}> MON</Text>
                     </View>
-                    <Text style={styles.stakeLabel}>Your stake</Text>
-                    <Text style={styles.stakeAmount}>{stakeMon} MON</Text>
-                    <Text style={styles.stakeUsd}>≈ ${stakeUsd}</Text>
                     <Pressable
                         onPress={onJoin}
                         disabled={joining || hasJoined}
@@ -182,15 +224,15 @@ export default function JoinScreen({
                     <Text style={styles.inviteSub}>Copy link and share</Text>
                     <View style={styles.inviteRow}>
                         <Pressable
-                            onPress={handleCopy}
+                            onPress={handleCopyLink}
                             style={({ pressed }) => [styles.linkPill, pressed && styles.pressed]}
                         >
                             <Text style={styles.linkText} numberOfLines={1} ellipsizeMode="tail">
-                                {copied ? "Copied!" : inviteUrl}
+                                {linkCopied ? "Copied ✓" : inviteUrl}
                             </Text>
                             <Feather
-                                name={copied ? "check" : "copy"}
-                                size={16}
+                                name={linkCopied ? "check" : "copy"}
+                                size={18}
                                 color={theme.colors.ink}
                             />
                         </Pressable>
@@ -198,7 +240,7 @@ export default function JoinScreen({
                             onPress={handleShare}
                             style={({ pressed }) => [styles.inviteBtn, pressed && styles.pressed]}
                         >
-                            <Text style={styles.inviteBtnEmoji}>👥</Text>
+                            <Ionicons name="share-outline" size={22} color={theme.colors.ink} />
                             <Text style={styles.inviteBtnText}>Invite</Text>
                         </Pressable>
                     </View>
@@ -206,7 +248,7 @@ export default function JoinScreen({
 
                 {/* Footer */}
                 <Text style={styles.footer}>
-                    Built on <Text style={styles.footerBrand}>◆ MONAD</Text>
+                    BUILT ON <Text style={styles.footerBrand}>◆ MONAD</Text>
                 </Text>
             </ScrollView>
         </SafeAreaView>
@@ -224,6 +266,7 @@ const styles = StyleSheet.create({
     content: {
         paddingHorizontal: 20,
         paddingBottom: 32,
+        gap: 20,
     },
     pressed: {
         opacity: 0.7,
@@ -238,28 +281,43 @@ const styles = StyleSheet.create({
     circleBtn: {
         width: 44,
         height: 44,
-        borderRadius: 22,
+        borderRadius: theme.radius.pill,
         backgroundColor: theme.colors.white,
+        borderWidth: 1,
+        borderColor: "rgba(17,17,17,0.06)",
         alignItems: "center",
         justifyContent: "center",
     },
-    // Hero
-    heroWrap: {
-        marginTop: 20,
-        paddingHorizontal: 4,
+    walletPill: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        height: 44,
+        paddingHorizontal: 16,
+        borderRadius: theme.radius.pill,
+        backgroundColor: theme.colors.white,
+        borderWidth: 1,
+        borderColor: "rgba(17,17,17,0.06)",
+        maxWidth: "70%",
     },
+    walletText: {
+        fontFamily: theme.font.semibold,
+        fontSize: 13,
+        color: theme.colors.ink,
+        flexShrink: 1,
+    },
+    // Hero
     hero: {
         backgroundColor: theme.colors.lime,
-        borderRadius: theme.radius.blob,
-        padding: 24,
-        paddingVertical: 28,
-        transform: [{ rotate: "-2deg" }],
+        borderRadius: theme.radius.card,
+        padding: 20,
     },
     heroLabel: {
         fontFamily: theme.font.semibold,
-        fontSize: 14,
+        fontSize: 12,
         color: theme.colors.ink,
-        opacity: 0.75,
+        opacity: 0.6,
+        letterSpacing: 0.4,
     },
     potRow: {
         flexDirection: "row",
@@ -278,7 +336,7 @@ const styles = StyleSheet.create({
         color: theme.colors.ink,
     },
     heroTagline: {
-        fontFamily: theme.font.bold,
+        fontFamily: theme.font.heavy,
         fontSize: 28,
         lineHeight: 32,
         color: theme.colors.ink,
@@ -286,15 +344,15 @@ const styles = StyleSheet.create({
     },
     shoeSticker: {
         position: "absolute",
-        right: -10,
-        top: -14,
+        right: -8,
+        top: -12,
         width: 64,
         height: 64,
         borderRadius: 20,
         backgroundColor: theme.colors.lavender,
         alignItems: "center",
         justifyContent: "center",
-        transform: [{ rotate: "8deg" }],
+        transform: [{ rotate: "3deg" }],
     },
     shoeEmoji: {
         fontSize: 30,
@@ -304,7 +362,6 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         flexWrap: "wrap",
         gap: 8,
-        marginTop: 24,
     },
     chip: {
         flexDirection: "row",
@@ -312,6 +369,8 @@ const styles = StyleSheet.create({
         gap: 6,
         backgroundColor: theme.colors.white,
         borderRadius: theme.radius.pill,
+        borderWidth: 1,
+        borderColor: "rgba(17,17,17,0.06)",
         paddingVertical: 10,
         paddingHorizontal: 14,
     },
@@ -324,18 +383,17 @@ const styles = StyleSheet.create({
     avatarRow: {
         flexDirection: "row",
         alignItems: "center",
-        marginTop: 20,
     },
     avatar: {
-        borderWidth: 3,
-        borderColor: theme.colors.white,
+        borderWidth: 2,
+        borderColor: theme.colors.cream,
     },
     addCircle: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        marginLeft: -12,
-        borderWidth: 2,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        marginLeft: -10,
+        borderWidth: 1.5,
         borderStyle: "dashed",
         borderColor: theme.colors.muted,
         backgroundColor: theme.colors.cream,
@@ -353,43 +411,28 @@ const styles = StyleSheet.create({
         backgroundColor: theme.colors.lavender,
         borderRadius: theme.radius.card,
         padding: 20,
-        marginTop: 20,
-    },
-    coinSticker: {
-        position: "absolute",
-        right: 16,
-        top: 16,
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        backgroundColor: theme.colors.white,
-        alignItems: "center",
-        justifyContent: "center",
-        transform: [{ rotate: "6deg" }],
-    },
-    coinDiamond: {
-        fontFamily: theme.font.black,
-        fontSize: 20,
-        color: "#7B5FD9",
     },
     stakeLabel: {
-        fontFamily: theme.font.medium,
-        fontSize: 14,
+        fontFamily: theme.font.semibold,
+        fontSize: 12,
         color: theme.colors.ink,
-        opacity: 0.75,
+        opacity: 0.55,
+        letterSpacing: 0.4,
+    },
+    stakeRow: {
+        flexDirection: "row",
+        alignItems: "baseline",
+        marginTop: 2,
     },
     stakeAmount: {
         fontFamily: theme.font.black,
         fontSize: 40,
         color: theme.colors.ink,
-        marginTop: 2,
     },
-    stakeUsd: {
-        fontFamily: theme.font.medium,
-        fontSize: 14,
+    stakeUnit: {
+        fontFamily: theme.font.black,
+        fontSize: 20,
         color: theme.colors.ink,
-        opacity: 0.55,
-        marginTop: 2,
     },
     joinBtn: {
         backgroundColor: theme.colors.ink,
@@ -404,7 +447,7 @@ const styles = StyleSheet.create({
     },
     joinBtnText: {
         fontFamily: theme.font.bold,
-        fontSize: 18,
+        fontSize: 17,
         color: theme.colors.white,
     },
     trustLine: {
@@ -419,17 +462,18 @@ const styles = StyleSheet.create({
     inviteCard: {
         backgroundColor: theme.colors.white,
         borderRadius: theme.radius.card,
+        borderWidth: 1,
+        borderColor: "rgba(17,17,17,0.06)",
         padding: 20,
-        marginTop: 16,
     },
     inviteTitle: {
-        fontFamily: theme.font.bold,
+        fontFamily: theme.font.heavy,
         fontSize: 18,
         color: theme.colors.ink,
     },
     inviteSub: {
         fontFamily: theme.font.medium,
-        fontSize: 13,
+        fontSize: 15,
         color: theme.colors.muted,
         marginTop: 2,
     },
@@ -446,7 +490,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         gap: 8,
         borderWidth: 1.5,
-        borderColor: "#E4DFD2",
+        borderColor: "rgba(17,17,17,0.12)",
         borderRadius: theme.radius.pill,
         paddingHorizontal: 16,
         height: 52,
@@ -454,26 +498,25 @@ const styles = StyleSheet.create({
     linkText: {
         flex: 1,
         fontFamily: theme.font.medium,
-        fontSize: 14,
+        fontSize: 15,
         color: theme.colors.ink,
     },
     inviteBtn: {
-        backgroundColor: theme.colors.pink,
-        borderRadius: 16,
-        paddingHorizontal: 16,
-        height: 52,
+        flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-    },
-    inviteBtnEmoji: {
-        fontSize: 16,
-        lineHeight: 18,
+        gap: 6,
+        backgroundColor: "transparent",
+        borderWidth: 1.5,
+        borderColor: theme.colors.ink,
+        borderRadius: theme.radius.pill,
+        paddingHorizontal: 16,
+        height: 52,
     },
     inviteBtnText: {
-        fontFamily: theme.font.semibold,
-        fontSize: 12,
+        fontFamily: theme.font.bold,
+        fontSize: 15,
         color: theme.colors.ink,
-        marginTop: 1,
     },
     // Footer
     footer: {
@@ -481,7 +524,8 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: theme.colors.muted,
         textAlign: "center",
-        marginTop: 24,
+        letterSpacing: 0.4,
+        marginTop: 4,
     },
     footerBrand: {
         color: theme.colors.ink,

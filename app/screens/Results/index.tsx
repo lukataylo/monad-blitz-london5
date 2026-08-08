@@ -101,7 +101,6 @@ export default function ResultsScreen({
               backgroundColor: theme.colors.ochre,
               alignItems: "center",
               justifyContent: "center",
-              transform: [{ rotate: "8deg" }],
             }}
           >
             <Text style={{ fontSize: 28 }}>🎉</Text>
@@ -110,7 +109,7 @@ export default function ResultsScreen({
             style={{
               fontFamily: theme.font.heavy,
               fontSize: 40,
-              lineHeight: 46,
+              lineHeight: 42,
               color: theme.colors.ink,
             }}
           >
@@ -121,7 +120,7 @@ export default function ResultsScreen({
               style={{
                 fontFamily: theme.font.heavy,
                 fontSize: 40,
-                lineHeight: 46,
+                lineHeight: 42,
                 color: theme.colors.ink,
               }}
             >
@@ -132,25 +131,25 @@ export default function ResultsScreen({
                 style={{
                   fontFamily: theme.font.heavy,
                   fontSize: 40,
-                  lineHeight: 46,
+                  lineHeight: 42,
                   color: theme.colors.ink,
                 }}
               >
                 won.
               </Text>
-              {/* hand-drawn-style lime ellipse around "won." */}
+              {/* lime ellipse hugging "won." — the screen's single rotated element */}
               <View
                 pointerEvents="none"
                 style={{
                   position: "absolute",
-                  left: -12,
-                  right: -14,
-                  top: -4,
-                  bottom: -4,
+                  left: -10,
+                  right: -12,
+                  top: -3,
+                  bottom: -3,
                   borderWidth: 3,
                   borderColor: theme.colors.lime,
                   borderRadius: 999,
-                  transform: [{ rotate: "-4deg" }],
+                  transform: [{ rotate: "-3deg" }],
                 }}
               />
             </View>
@@ -158,18 +157,17 @@ export default function ResultsScreen({
         </View>
 
         {/* Podium */}
-        <View style={{ marginTop: 32 }}>
+        <View style={{ marginTop: 20 }}>
           <Podium winner={winner} runnerUp={runnerUp} third={thirdColumn} />
         </View>
 
         {/* Last place row */}
         <View
           style={{
-            marginTop: 16,
+            marginTop: 20,
             backgroundColor: "#EDE4CF",
             borderRadius: 20,
-            paddingVertical: 14,
-            paddingHorizontal: 16,
+            padding: 16,
             flexDirection: "row",
             alignItems: "center",
           }}
@@ -184,7 +182,7 @@ export default function ResultsScreen({
           >
             {ranked.length}
           </Text>
-          <Avatar seed={last.address} size={36} />
+          <Avatar seed={last.address} label={last.name} size={36} />
           <View style={{ marginLeft: 10, flex: 1 }}>
             <Text
               style={{
@@ -198,20 +196,27 @@ export default function ResultsScreen({
             </Text>
             <Text
               style={{
-                fontFamily: theme.font.medium,
+                fontFamily: theme.font.semibold,
                 fontSize: 12,
                 color: theme.colors.muted,
+                letterSpacing: 0.4,
+                textTransform: "uppercase",
+                marginTop: 2,
               }}
             >
               Walked the least
             </Text>
           </View>
-          <View style={{ alignItems: "flex-end" }}>
+          <View style={{ alignItems: "flex-end", marginLeft: 12 }}>
             <Text
               style={{
                 fontFamily: theme.font.semibold,
                 fontSize: 12,
                 color: theme.colors.muted,
+                letterSpacing: 0.4,
+                textTransform: "uppercase",
+                textAlign: "right",
+                maxWidth: 120,
               }}
             >
               Stake added to the pot
@@ -221,12 +226,12 @@ export default function ResultsScreen({
         </View>
 
         {/* Weekly bar chart */}
-        <View style={{ marginTop: 16 }}>
+        <View style={{ marginTop: 20 }}>
           <WeekChart weekSteps={weekSteps} />
         </View>
 
         {/* CTAs */}
-        <View style={{ marginTop: 24, gap: 12 }}>
+        <View style={{ marginTop: 20, gap: 12 }}>
           {youWon ? (
             <Pressable
               onPress={onClaim}
@@ -234,7 +239,7 @@ export default function ResultsScreen({
               style={{
                 backgroundColor: theme.colors.ink,
                 borderRadius: theme.radius.pill,
-                height: 58,
+                height: 56,
                 alignItems: "center",
                 justifyContent: "center",
                 opacity: claimed ? 0.6 : 1,
@@ -259,7 +264,7 @@ export default function ResultsScreen({
               style={{
                 backgroundColor: theme.colors.ink,
                 borderRadius: theme.radius.pill,
-                height: 58,
+                height: 56,
                 alignItems: "center",
                 justifyContent: "center",
                 opacity: 0.45,
@@ -283,7 +288,7 @@ export default function ResultsScreen({
               borderWidth: 1.5,
               borderColor: theme.colors.ink,
               borderRadius: theme.radius.pill,
-              height: 58,
+              height: 56,
               alignItems: "center",
               justifyContent: "center",
               backgroundColor: "transparent",
@@ -304,14 +309,16 @@ export default function ResultsScreen({
         {/* Footer */}
         <Text
           style={{
-            fontFamily: theme.font.medium,
-            fontSize: 13,
+            fontFamily: theme.font.semibold,
+            fontSize: 12,
             color: theme.colors.muted,
+            letterSpacing: 0.4,
+            textTransform: "uppercase",
             textAlign: "center",
-            marginTop: 24,
+            marginTop: 20,
           }}
         >
-          Thanks for walking with us! 💛
+          Thanks for walking with us 💛
         </Text>
       </ScrollView>
     </SafeAreaView>

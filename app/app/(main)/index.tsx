@@ -1,6 +1,8 @@
 import { useChallengeContext } from "@/context/ChallengeContext";
+import { useWalletContext } from "@/context/WalletContext";
 import { theme } from "@/lib/theme";
 import JoinScreen from "@/screens/Join";
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import React, { useCallback } from "react";
 import { Alert, Pressable, StyleSheet, Text } from "react-native";
@@ -21,6 +23,11 @@ export default function JoinRoute() {
         createChallenge,
         setActiveChallengeId,
     } = useChallengeContext();
+    const { address, balance } = useWalletContext();
+
+    const onCopyAddress = useCallback(() => {
+        if (address) Clipboard.setStringAsync(address);
+    }, [address]);
 
     const hasJoined = challenge?.participants.some((p) => p.isYou) ?? false;
 
@@ -69,6 +76,9 @@ export default function JoinRoute() {
                         ? `walkthewalk.mon/${activeChallengeId}`
                         : "walkthewalk.mon/10k"
                 }
+                walletAddress={address}
+                walletBalance={balance}
+                onCopyAddress={onCopyAddress}
             />
             {!demoMode && !hasJoined && (
                 <Pressable style={styles.codePill} onPress={onEnterCode}>

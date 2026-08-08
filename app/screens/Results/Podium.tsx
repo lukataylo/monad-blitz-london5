@@ -6,7 +6,8 @@ import { theme } from "@/lib/theme";
 import { Participant } from "@/lib/types";
 
 function mon(p: Participant): string {
-  return `${formatEther(p.payout)} MON`;
+  const value = Number(formatEther(p.payout));
+  return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} MON`;
 }
 
 function Column({
@@ -15,78 +16,47 @@ function Column({
   height,
   percent,
   amount,
-  rank,
   crowned,
-  avatarSize,
-  tilt,
 }: {
   participant: Participant;
   color: string;
   height: number;
   percent: string;
   amount: string;
-  rank?: string;
   crowned?: boolean;
-  avatarSize: number;
-  tilt: string;
 }) {
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "flex-end" }}>
-      {crowned && (
-        <Text
-          style={{
-            fontSize: 30,
-            marginBottom: -6,
-            zIndex: 2,
-            transform: [{ rotate: "-12deg" }],
-          }}
-        >
-          👑
-        </Text>
-      )}
+      {crowned && <Text style={{ fontSize: 26, marginBottom: 2 }}>👑</Text>}
+      <Avatar seed={participant.address} label={participant.name} size={48} />
+      <Text
+        style={{
+          fontFamily: theme.font.semibold,
+          fontSize: 13,
+          color: theme.colors.ink,
+          marginTop: 6,
+          marginBottom: 8,
+        }}
+        numberOfLines={1}
+      >
+        {participant.name}
+      </Text>
       <View
         style={{
           alignSelf: "stretch",
           height,
           backgroundColor: color,
-          borderRadius: 20,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
           alignItems: "center",
           paddingTop: 16,
-          paddingBottom: 14,
-          transform: [{ rotate: tilt }],
+          paddingHorizontal: 6,
         }}
       >
-        <Avatar seed={participant.address} size={avatarSize} />
-        {rank ? (
-          <Text
-            style={{
-              fontFamily: theme.font.black,
-              fontSize: 30,
-              color: theme.colors.ink,
-              marginTop: 6,
-            }}
-          >
-            {rank}
-          </Text>
-        ) : (
-          <View style={{ height: 8 }} />
-        )}
-        <Text
-          style={{
-            fontFamily: theme.font.bold,
-            fontSize: 15,
-            color: theme.colors.ink,
-            marginTop: 2,
-          }}
-          numberOfLines={1}
-        >
-          {participant.name}
-        </Text>
-        <View style={{ flex: 1 }} />
         <Text
           style={{
             fontFamily: theme.font.black,
-            fontSize: 28,
+            fontSize: 26,
             color: theme.colors.ink,
           }}
         >
@@ -95,10 +65,11 @@ function Column({
         <Text
           style={{
             fontFamily: theme.font.bold,
-            fontSize: 14,
+            fontSize: 15,
             color: theme.colors.ink,
             marginTop: 2,
           }}
+          numberOfLines={1}
         >
           {amount}
         </Text>
@@ -122,38 +93,30 @@ export default function Podium({
       style={{
         flexDirection: "row",
         alignItems: "flex-end",
-        gap: 8,
+        gap: 10,
       }}
     >
       <Column
         participant={runnerUp}
         color={theme.colors.pink}
-        height={196}
+        height={150}
         percent="30%"
         amount={mon(runnerUp)}
-        rank="2"
-        avatarSize={48}
-        tilt="-1.5deg"
       />
       <Column
         participant={winner}
         color={theme.colors.lime}
-        height={244}
+        height={190}
         percent="70%"
         amount={mon(winner)}
-        rank="1"
         crowned
-        avatarSize={56}
-        tilt="0deg"
       />
       <Column
         participant={third}
         color={theme.colors.lavender}
-        height={156}
+        height={120}
         percent="—"
         amount="Nice work!"
-        avatarSize={48}
-        tilt="1.5deg"
       />
     </View>
   );

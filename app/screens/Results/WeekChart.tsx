@@ -4,10 +4,6 @@ import { theme } from "@/lib/theme";
 
 const MAX_BAR_HEIGHT = 110;
 
-function formatK(steps: number): string {
-  return `${(steps / 1000).toFixed(1)}K`;
-}
-
 /** "Steps this week" white card with a Mon–Sun bar chart built from plain Views. */
 export default function WeekChart({
   weekSteps,
@@ -23,14 +19,16 @@ export default function WeekChart({
     <View
       style={{
         backgroundColor: theme.colors.white,
-        borderRadius: theme.radius.card,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: "rgba(17,17,17,0.06)",
         padding: 20,
       }}
     >
       <Text
         style={{
-          fontFamily: theme.font.semibold,
-          fontSize: 17,
+          fontFamily: theme.font.heavy,
+          fontSize: 18,
           color: theme.colors.ink,
           marginBottom: 18,
         }}
@@ -41,7 +39,7 @@ export default function WeekChart({
         style={{
           flexDirection: "row",
           alignItems: "flex-end",
-          gap: 10,
+          gap: 8,
         }}
       >
         {weekSteps.map((d, i) => {
@@ -62,8 +60,9 @@ export default function WeekChart({
                   color: theme.colors.muted,
                   marginBottom: 6,
                 }}
+                numberOfLines={1}
               >
-                {formatK(d.steps)}
+                {d.steps.toLocaleString()}
               </Text>
               <View
                 style={{
@@ -76,7 +75,7 @@ export default function WeekChart({
               />
               <Text
                 style={{
-                  fontFamily: theme.font.medium,
+                  fontFamily: theme.font.semibold,
                   fontSize: 11,
                   color: theme.colors.muted,
                   marginTop: 6,

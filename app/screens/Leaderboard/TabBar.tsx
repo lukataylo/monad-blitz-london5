@@ -20,7 +20,7 @@ export default function TabBar({
       </Pressable>
 
       <Pressable style={styles.addButton} onPress={() => onTabPress?.("add")}>
-        <Ionicons name="add" size={26} color={theme.colors.ink} />
+        <Ionicons name="add" size={24} color={theme.colors.ink} />
       </Pressable>
 
       <Pressable style={styles.tab} onPress={() => onTabPress?.("people")}>
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     right: 20,
-    bottom: 20,
+    bottom: 24,
     height: 64,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.colors.ink,

@@ -104,7 +104,9 @@ export default function LeaderboardScreen({
   const maxSteps = sorted.length > 0 ? sorted[0].steps : 0;
   const safety = useMemo(() => computeSafety(sorted), [sorted]);
 
-  const potLabel = formatEther(challenge.pot);
+  const potLabel = Number(formatEther(challenge.pot)).toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  });
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -162,7 +164,7 @@ export default function LeaderboardScreen({
         {/* Shared pot chip */}
         <View style={styles.potChip}>
           <Text style={styles.potText}>
-            Shared pot <Text style={styles.potDiamond}>◆</Text> {potLabel} MON
+            Shared pot · <Text style={styles.potAmount}>{potLabel} MON</Text>
           </Text>
         </View>
 
@@ -195,7 +197,6 @@ export default function LeaderboardScreen({
               </Text>
               <Text style={styles.safetyLabel}>{safety.label}</Text>
             </View>
-            <Text style={styles.safetyDoodle}>↩️</Text>
           </View>
         ) : null}
       </ScrollView>
@@ -228,6 +229,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: theme.colors.white,
+    borderWidth: 1,
+    borderColor: "rgba(17,17,17,0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -240,17 +243,19 @@ const styles = StyleSheet.create({
     color: theme.colors.ink,
   },
   countdownText: {
-    fontFamily: theme.font.medium,
-    fontSize: 13,
+    fontFamily: theme.font.semibold,
+    fontSize: 12,
     color: theme.colors.muted,
-    marginTop: 1,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    marginTop: 2,
   },
   settlePill: {
-    marginTop: 16,
+    marginTop: 20,
     alignSelf: "stretch",
     backgroundColor: theme.colors.ink,
     borderRadius: theme.radius.pill,
-    height: 52,
+    height: 56,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -263,13 +268,13 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
   },
   titleBlock: {
-    marginTop: 28,
+    marginTop: 20,
     marginBottom: 20,
   },
   titleLine: {
     fontFamily: theme.font.heavy,
     fontSize: 40,
-    lineHeight: 46,
+    lineHeight: 42,
     color: theme.colors.ink,
   },
   titleLastLine: {
@@ -281,9 +286,9 @@ const styles = StyleSheet.create({
   },
   highlightBar: {
     position: "absolute",
-    left: -6,
-    right: -8,
-    top: 8,
+    left: -4,
+    right: -4,
+    top: 6,
     bottom: 2,
     backgroundColor: theme.colors.lime,
     borderRadius: 12,
@@ -298,7 +303,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.pink,
     alignItems: "center",
     justifyContent: "center",
-    transform: [{ rotate: "6deg" }],
+    transform: [{ rotate: "-3deg" }],
     zIndex: 1,
   },
   sneakerEmoji: {
@@ -309,16 +314,17 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.ink,
     borderRadius: theme.radius.pill,
     paddingHorizontal: 18,
-    paddingVertical: 10,
-    marginBottom: 24,
+    minHeight: 44,
+    justifyContent: "center",
+    marginBottom: 20,
   },
   potText: {
-    fontFamily: theme.font.semibold,
+    fontFamily: theme.font.medium,
     fontSize: 15,
     color: theme.colors.white,
   },
-  potDiamond: {
-    color: theme.colors.lavender,
+  potAmount: {
+    fontFamily: theme.font.bold,
   },
   list: {
     marginBottom: 20,
@@ -331,9 +337,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   safetyBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: theme.colors.white,
     alignItems: "center",
     justifyContent: "center",
@@ -350,19 +356,16 @@ const styles = StyleSheet.create({
   },
   safetySteps: {
     fontFamily: theme.font.black,
-    fontSize: 30,
+    fontSize: 28,
     color: theme.colors.ink,
   },
   safetyLabel: {
-    fontFamily: theme.font.medium,
-    fontSize: 13,
+    fontFamily: theme.font.semibold,
+    fontSize: 12,
     color: theme.colors.ink,
-    opacity: 0.7,
-    marginTop: 1,
-  },
-  safetyDoodle: {
-    fontSize: 24,
-    transform: [{ rotate: "-8deg" }],
-    marginLeft: 8,
+    opacity: 0.6,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    marginTop: 2,
   },
 });

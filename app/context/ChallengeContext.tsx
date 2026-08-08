@@ -23,8 +23,9 @@ export type Profile = {
 };
 
 const POLL_INTERVAL_MS = 4000;
-const GAS_WRITE = 300_000n;
-const GAS_CREATE = 3_000_000n;
+// Monad charges the gas LIMIT (~102 gwei testnet) — padding is real cost.
+const GAS_WRITE = 200_000n;
+const GAS_CREATE = 400_000n;
 
 function shortAddr(addr: string): string {
     return `${addr.slice(0, 4)}…${addr.slice(-2)}`;

@@ -20,8 +20,11 @@ const POLL_INTERVAL_MS = 6000; // gentler on the public RPC (steps challenges)
 // reps move in near-real-time on the standings.
 const POLL_INTERVAL_REPS_MS = 4000;
 // Monad charges on gas_limit, not gas_used — keep these exact limits.
-const GAS_WRITE = 300_000n;
-const GAS_CREATE = 3_000_000n;
+// Right-sized: Monad charges the LIMIT (102 gwei testnet), so padding = real cost.
+// create ~250k used -> 400k; join/submit/claim <=120k -> 200k; settle loops -> 350k.
+const GAS_WRITE = 200_000n;
+const GAS_SETTLE = 350_000n;
+const GAS_CREATE = 400_000n;
 
 function shortAddr(addr: string): string {
     return `${addr.slice(0, 4)}…${addr.slice(-2)}`;
@@ -413,7 +416,8 @@ export function ChallengeProvider({
                     abi: walkPoolAbi,
                     functionName,
                     args: [BigInt(activeChallengeId)],
-                    gas: GAS_WRITE,
+                    // settle ranks the whole roster in one tx — give it headroom
+                    gas: functionName === "settle" ? GAS_SETTLE : GAS_WRITE,
                 });
                 await publicClient.waitForTransactionReceipt({ hash });
                 await afterWrite();

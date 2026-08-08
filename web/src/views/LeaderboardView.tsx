@@ -26,7 +26,7 @@ const ExerciseTracker = lazy(() =>
 
 // Auto-submit cadence: reps blitzes race in real time, steps can amble.
 const AUTO_SYNC_STEPS_MS = 15_000;
-const AUTO_SYNC_REPS_MS = 4_000; // push reps fast — event watchers relay them to every device
+const AUTO_SYNC_REPS_MS = 8_000; // gas economy: each submit costs the gas LIMIT on Monad
 const CHALLENGE_DAYS = 7;
 
 function useNow(): number {

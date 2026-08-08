@@ -34,9 +34,12 @@ function fmtMon(wei: bigint): string {
 export function OnboardingModal({
     onSaved,
     onClose,
+    mandatory = false,
 }: {
     onSaved: (profile: Profile) => void;
     onClose: () => void;
+    /** Gate mode: no skip, no dismiss — the app requires an account. */
+    mandatory?: boolean;
 }) {
     const { balance, refreshBalance, reloadWallet } = useWalletContext();
 
@@ -138,7 +141,7 @@ export function OnboardingModal({
     return (
         <div
             className="modal-overlay"
-            onClick={step === "reveal" ? undefined : onClose}
+            onClick={step === "reveal" || mandatory ? undefined : onClose}
         >
             <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
                 {step === "form" && (
@@ -236,12 +239,14 @@ export function OnboardingModal({
                                 >
                                     Create account →
                                 </button>
-                                <button
-                                    className="text-btn"
-                                    onClick={skipAnonymous}
-                                >
-                                    Skip — stay anonymous
-                                </button>
+                                {!mandatory && (
+                                    <button
+                                        className="text-btn"
+                                        onClick={skipAnonymous}
+                                    >
+                                        Skip — stay anonymous
+                                    </button>
+                                )}
                             </>
                         )}
 
@@ -318,9 +323,11 @@ export function OnboardingModal({
                             </>
                         )}
 
-                        <button className="text-btn" onClick={onClose}>
-                            Not now
-                        </button>
+                        {!mandatory && (
+                            <button className="text-btn" onClick={onClose}>
+                                Not now
+                            </button>
+                        )}
                     </>
                 )}
 

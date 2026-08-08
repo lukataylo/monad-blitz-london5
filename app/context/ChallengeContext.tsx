@@ -48,7 +48,8 @@ interface ChallengeContextType {
     createChallenge: (
         stakeWei: bigint,
         durationSec: number,
-        title: string
+        title: string,
+        kind?: number
     ) => Promise<number | null>;
     join: (id: number) => Promise<void>;
     submitSteps: (steps: number) => Promise<void>;
@@ -168,7 +169,8 @@ export function ChallengeProvider({
                         args: [BigInt(id)],
                     }),
                 ]);
-                const [creator, stake, endTime, settled, pot, , title] = info;
+                const [creator, stake, endTime, settled, pot, , title, kind] =
+                    info;
                 const [addrs, steps, payouts, chainNames] = parts;
                 const you = addressRef.current?.toLowerCase();
                 const localNames = namesRef.current;
@@ -195,6 +197,7 @@ export function ChallengeProvider({
                     endTime: Number(endTime),
                     settled,
                     pot,
+                    kind: Number(kind) === 1 ? 1 : 0,
                     participants,
                 });
                 setError(null);
@@ -247,7 +250,8 @@ export function ChallengeProvider({
         async (
             stakeWei: bigint,
             durationSec: number,
-            title: string
+            title: string,
+            kind: number = 0
         ): Promise<number | null> => {
             if (demoMode) {
                 console.warn("[demo] createChallenge — contract not configured");
@@ -266,7 +270,7 @@ export function ChallengeProvider({
                         BigInt(durationSec),
                         title,
                         profileRef.current?.name ?? "",
-                        0, // kind: 0 = steps (reps challenges land with the exercise tracker)
+                        kind, // 0 = steps (default; mobile wizard is steps-only for now), 1 = reps
                     ],
                     value: stakeWei,
                     // Monad charges on gas_limit, not gas_used — keep it modest.

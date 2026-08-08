@@ -666,6 +666,38 @@ button {
   color: rgba(17, 17, 17, 0.65);
 }
 
+/* kind picker: full-width cards, emoji beside the copy */
+.kind-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kind-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.rec-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--lime);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
+}
+
+/* exercise toggle above the camera tracker (kind-1 leaderboard) */
+.exercise-toggle {
+  display: flex;
+  gap: 8px;
+}
+
 .payout-row {
   display: flex;
   align-items: center;

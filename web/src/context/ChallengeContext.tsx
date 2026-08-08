@@ -72,7 +72,8 @@ interface ChallengeContextType {
     createChallenge: (
         stakeWei: bigint,
         durationSec: number,
-        title: string
+        title: string,
+        kind: number
     ) => Promise<number | null>;
     join: (id: number) => Promise<void>;
     submitSteps: (steps: number) => Promise<void>;
@@ -143,7 +144,8 @@ export function ChallengeProvider({
                         args: [BigInt(id)],
                     }),
                 ]);
-                const [creator, stake, endTime, settled, pot, , title] = info;
+                const [creator, stake, endTime, settled, pot, , title, kind] =
+                    info;
                 // Unset mapping/array slot -> zero struct: the id was never created.
                 if (creator.toLowerCase() === ZERO_ADDRESS) {
                     setChallenge(null);
@@ -180,6 +182,7 @@ export function ChallengeProvider({
                     endTime: Number(endTime),
                     settled,
                     pot,
+                    kind: Number(kind) === 1 ? 1 : 0,
                     participants,
                 });
                 setChallengeNotFound(false);
@@ -244,7 +247,8 @@ export function ChallengeProvider({
         async (
             stakeWei: bigint,
             durationSec: number,
-            title: string
+            title: string,
+            kind: number
         ): Promise<number | null> => {
             if (demoMode) {
                 setError(
@@ -260,7 +264,13 @@ export function ChallengeProvider({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
                     functionName: "createChallenge",
-                    args: [stakeWei, BigInt(durationSec), title, profileName(), 0],
+                    args: [
+                        stakeWei,
+                        BigInt(durationSec),
+                        title,
+                        profileName(),
+                        kind,
+                    ],
                     value: stakeWei,
                     // Monad charges on gas_limit, not gas_used — keep it modest.
                     gas: GAS_CREATE,

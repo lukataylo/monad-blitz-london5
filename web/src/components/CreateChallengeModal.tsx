@@ -1,12 +1,16 @@
 import { useMemo, useState } from "react";
 import { parseEther } from "viem";
 import { useChallengeContext } from "../context/ChallengeContext";
+import {
+    saveExerciseChoice,
+    type StoredExercise,
+} from "../lib/exerciseChoice";
 import { loadProfile } from "../lib/profile";
 
-// Start-a-challenge flow: a 4-step wizard (name → pace → stakes → review)
-// ending in the "Challenge is live!" moment with the shareable invite link.
-// Rendered at App level so it survives the auto-switch to the leaderboard
-// after creation confirms.
+// Start-a-challenge flow: a 5-step wizard (name → kind → pace → stakes →
+// review) ending in the "Challenge is live!" moment with the shareable
+// invite link. Rendered at App level so it survives the auto-switch to the
+// leaderboard after creation confirms.
 
 const MIN_STAKE_MON = 0.001;
 const MAX_TITLE_LENGTH = 64;
@@ -17,6 +21,39 @@ const TITLE_SUGGESTIONS = [
     "Walk It Off",
     "Monday Miles",
 ] as const;
+
+// What gets counted. On-chain the contract stores only kind (0 steps /
+// 1 reps); the specific exercise for kind 1 is the creator's local choice,
+// persisted per challenge id in localStorage (see lib/exerciseChoice.ts).
+// Joiners on other devices default to "squat".
+const KINDS = [
+    {
+        key: "steps",
+        emoji: "🚶",
+        name: "Steps",
+        desc: "Walk it out — phone counts your steps",
+        kind: 0,
+        exercise: null,
+    },
+    {
+        key: "squat",
+        emoji: "🏋️",
+        name: "Squats",
+        desc: "Camera counts your squats",
+        kind: 1,
+        exercise: "squat",
+    },
+    {
+        key: "jumping_jack",
+        emoji: "⭐",
+        name: "Jumping jacks",
+        desc: "Camera counts your jacks",
+        kind: 1,
+        exercise: "jumping_jack",
+    },
+] as const;
+
+type KindKey = (typeof KINDS)[number]["key"];
 
 const PACES = [
     {
@@ -85,6 +122,7 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
 
     const [step, setStep] = useState(1);
     const [title, setTitle] = useState("");
+    const [kindKey, setKindKey] = useState<KindKey>("steps");
     const [paceKey, setPaceKey] = useState<PaceKey>("classic");
     const [stakeStr, setStakeStr] = useState("0.1");
     const [liveId, setLiveId] = useState<number | null>(null);
@@ -93,6 +131,8 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
     const [submitFailed, setSubmitFailed] = useState(false);
 
     const pace = PACES.find((p) => p.key === paceKey) ?? PACES[2];
+    const kindDef = KINDS.find((k) => k.key === kindKey) ?? KINDS[0];
+    const unit = kindDef.kind === 1 ? "reps" : "steps";
 
     const titleOk = title.trim() !== "";
     const stakeNum = Number(stakeStr);
@@ -124,9 +164,15 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
         const id = await createChallenge(
             stakeWei,
             pace.secs,
-            title.trim().slice(0, MAX_TITLE_LENGTH)
+            title.trim().slice(0, MAX_TITLE_LENGTH),
+            kindDef.kind
         );
         if (id != null) {
+            // Remember which exercise the creator picked — the contract only
+            // stores kind, so this stays local (joiners default to squats).
+            if (kindDef.exercise != null) {
+                saveExerciseChoice(id, kindDef.exercise as StoredExercise);
+            }
             setLiveId(id);
         } else {
             setSubmitFailed(true);
@@ -144,8 +190,8 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
         if (!inviteLink || !canShare) return;
         navigator
             .share({
-                title: `Walk The Walk — ${title.trim() || "step challenge"}`,
-                text: `Stake ${stakeStr} MON, most steps wins. You in?`,
+                title: `Walk The Walk — ${title.trim() || `${unit} challenge`}`,
+                text: `Stake ${stakeStr} MON, most ${unit} wins. You in?`,
                 url: inviteLink,
             })
             .catch(() => {});
@@ -219,9 +265,9 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                     )}
                     <div
                         className="wiz-dots"
-                        aria-label={`Step ${step} of 4`}
+                        aria-label={`Step ${step} of 5`}
                     >
-                        {[1, 2, 3, 4].map((n) => (
+                        {[1, 2, 3, 4, 5].map((n) => (
                             <span
                                 key={n}
                                 className={`wiz-dot${
@@ -292,35 +338,36 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                     </div>
                 )}
 
-                {/* STEP 2 — pace */}
+                {/* STEP 2 — kind */}
                 {step === 2 && (
                     <div className="wiz-step" key="s2">
-                        <div className="modal-title">Pick the pace</div>
-                        <div className="pace-grid">
-                            {PACES.map((p) => (
+                        <div className="modal-title">
+                            What kind of challenge?
+                        </div>
+                        <div className="kind-stack">
+                            {KINDS.map((k) => (
                                 <button
-                                    key={p.key}
-                                    className={`pace-card${
-                                        p.key === paceKey
+                                    key={k.key}
+                                    className={`pace-card kind-card${
+                                        k.key === kindKey
                                             ? " pace-card--active"
                                             : ""
                                     }`}
-                                    onClick={() => setPaceKey(p.key)}
+                                    onClick={() => setKindKey(k.key)}
                                 >
                                     <span className="pace-emoji">
-                                        {p.emoji}
+                                        {k.emoji}
                                     </span>
-                                    <span className="pace-name">{p.name}</span>
-                                    <span className="pace-dur">
-                                        {p.durationLabel}
-                                    </span>
-                                    {p.note && (
-                                        <span className="pace-note">
-                                            {p.note}
+                                    <span>
+                                        <span className="pace-name">
+                                            {k.name}
                                         </span>
-                                    )}
-                                    <span className="pace-ends">
-                                        Ends {formatEndDate(p.secs)}
+                                        <span
+                                            className="pace-dur"
+                                            style={{ display: "block" }}
+                                        >
+                                            {k.desc}
+                                        </span>
                                     </span>
                                 </button>
                             ))}
@@ -334,9 +381,64 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                     </div>
                 )}
 
-                {/* STEP 3 — stakes */}
+                {/* STEP 3 — pace */}
                 {step === 3 && (
                     <div className="wiz-step" key="s3">
+                        <div className="modal-title">Pick the pace</div>
+                        <div className="pace-grid">
+                            {PACES.map((p) => {
+                                // Rep challenges happen on the spot in front
+                                // of the camera — nudge towards Blitz.
+                                const recommended =
+                                    kindDef.kind === 1 && p.key === "blitz";
+                                return (
+                                    <button
+                                        key={p.key}
+                                        className={`pace-card${
+                                            p.key === paceKey
+                                                ? " pace-card--active"
+                                                : ""
+                                        }`}
+                                        onClick={() => setPaceKey(p.key)}
+                                    >
+                                        <span className="pace-emoji">
+                                            {p.emoji}
+                                        </span>
+                                        <span className="pace-name">
+                                            {p.name}
+                                            {recommended && (
+                                                <span className="rec-badge">
+                                                    Recommended
+                                                </span>
+                                            )}
+                                        </span>
+                                        <span className="pace-dur">
+                                            {p.durationLabel}
+                                        </span>
+                                        {p.note && (
+                                            <span className="pace-note">
+                                                {p.note}
+                                            </span>
+                                        )}
+                                        <span className="pace-ends">
+                                            Ends {formatEndDate(p.secs)}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <button
+                            className="pill-btn"
+                            onClick={() => setStep(4)}
+                        >
+                            Next →
+                        </button>
+                    </div>
+                )}
+
+                {/* STEP 4 — stakes */}
+                {step === 4 && (
+                    <div className="wiz-step" key="s4">
                         <div className="modal-title">Set the stakes</div>
                         <div className="chips-row">
                             {STAKE_PRESETS.map((s) => (
@@ -387,7 +489,7 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                         </div>
                         <button
                             className="pill-btn"
-                            onClick={() => setStep(4)}
+                            onClick={() => setStep(5)}
                             disabled={!stakeOk}
                         >
                             Next →
@@ -395,15 +497,21 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                     </div>
                 )}
 
-                {/* STEP 4 — review & launch */}
-                {step === 4 && (
-                    <div className="wiz-step" key="s4">
+                {/* STEP 5 — review & launch */}
+                {step === 5 && (
+                    <div className="wiz-step" key="s5">
                         <div className="modal-title">Review & launch</div>
                         <div className="review-card">
                             <div className="review-row">
                                 <span className="review-label">Challenge</span>
                                 <span className="review-value">
                                     {title.trim()}
+                                </span>
+                            </div>
+                            <div className="review-row">
+                                <span className="review-label">Kind</span>
+                                <span className="review-value">
+                                    {kindDef.emoji} {kindDef.name}
                                 </span>
                             </div>
                             <div className="review-row">

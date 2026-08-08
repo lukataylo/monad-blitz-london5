@@ -1,8 +1,27 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+    lazy,
+    Suspense,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import { Avatar, formatMon } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
 import { useMotionSteps } from "../hooks/useMotionSteps";
+import {
+    loadExerciseChoice,
+    saveExerciseChoice,
+    type StoredExercise,
+} from "../lib/exerciseChoice";
 import type { Challenge } from "../lib/types";
+
+// Camera rep tracker only mounts for kind-1 challenges — keep it out of the
+// main bundle (MediaPipe itself is a further dynamic import inside start()).
+const ExerciseTracker = lazy(() =>
+    import("../exercise").then((m) => ({ default: m.ExerciseTracker }))
+);
 
 const AUTO_SYNC_MS = 15_000;
 const CHALLENGE_DAYS = 7;
@@ -36,27 +55,32 @@ function formatTimeLeft(secs: number): string {
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function StepControls({ challenge }: { challenge: Challenge }) {
+// One score card for both kinds: a live counter (`extra` — accelerometer
+// steps for kind 0, camera reps for kind 1) ADDS onto the manual base, giving
+// a single monotonic total that auto-syncs on-chain.
+function ScoreCard({
+    challenge,
+    extra,
+    unit,
+    motionUi,
+}: {
+    challenge: Challenge;
+    extra: number;
+    unit: "steps" | "reps";
+    motionUi?: React.ReactNode;
+}) {
     const { submitSteps, txPending, demoMode } = useChallengeContext();
     const you = challenge.participants.find((p) => p.isYou);
 
-    // Real steps from the phone's accelerometer ADD onto the manual base:
-    // one single total that syncs on-chain.
-    const {
-        state: motionState,
-        steps: motionSteps,
-        requestPermission,
-    } = useMotionSteps();
-
-    const [baseSteps, setBaseSteps] = useState<number>(you?.steps ?? 0);
-    const total = baseSteps + motionSteps;
+    const [base, setBase] = useState<number>(you?.steps ?? 0);
+    const total = base + extra;
 
     const seeded = useRef(false);
     const lastSubmitted = useRef<number>(you?.steps ?? 0);
     const totalRef = useRef(total);
     totalRef.current = total;
-    const motionRef = useRef(motionSteps);
-    motionRef.current = motionSteps;
+    const extraRef = useRef(extra);
+    extraRef.current = extra;
     const pendingRef = useRef(txPending);
     pendingRef.current = txPending;
 
@@ -64,7 +88,7 @@ function StepControls({ challenge }: { challenge: Challenge }) {
     useEffect(() => {
         if (!seeded.current && you != null) {
             seeded.current = true;
-            setBaseSteps(Math.max(0, you.steps - motionRef.current));
+            setBase(Math.max(0, you.steps - extraRef.current));
             lastSubmitted.current = you.steps;
         }
     }, [you]);
@@ -89,7 +113,7 @@ function StepControls({ challenge }: { challenge: Challenge }) {
     return (
         <div className="card">
             <div className="caption" style={{ marginBottom: 10 }}>
-                Your steps
+                Your {unit}
             </div>
             <input
                 className="steps-input"
@@ -97,35 +121,14 @@ function StepControls({ challenge }: { challenge: Challenge }) {
                 value={String(total)}
                 onChange={(e) => {
                     const n = Number(e.target.value.replace(/[^0-9]/g, ""));
-                    // Editing sets the total; motion steps keep adding on top.
-                    setBaseSteps(
-                        Math.max(0, (Number.isNaN(n) ? 0 : n) - motionSteps)
+                    // Editing sets the total; the live counter keeps adding on top.
+                    setBase(
+                        Math.max(0, (Number.isNaN(n) ? 0 : n) - extra)
                     );
                 }}
             />
 
-            {/* motion tracking */}
-            {motionState === "prompt" && (
-                <button
-                    className="pill-btn"
-                    style={{ marginTop: 10 }}
-                    onClick={requestPermission}
-                >
-                    Enable motion tracking 👟
-                </button>
-            )}
-            {motionState === "granted" && (
-                <div className="motion-live">
-                    <span className="dot dot--live" />
-                    Walked with your phone: {motionSteps.toLocaleString()}{" "}
-                    steps
-                </div>
-            )}
-            {motionState === "denied" && (
-                <div className="caption" style={{ marginTop: 10 }}>
-                    Motion access denied — use the controls below
-                </div>
-            )}
+            {motionUi}
 
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button
@@ -139,7 +142,7 @@ function StepControls({ challenge }: { challenge: Challenge }) {
             </div>
             <div className="caption" style={{ marginTop: 10 }}>
                 {demoMode
-                    ? "Contract not deployed — steps stay local"
+                    ? `Contract not deployed — ${unit} stay local`
                     : dirty
                       ? "Auto-syncs on-chain every 15s"
                       : "Synced on-chain"}
@@ -153,19 +156,74 @@ function StepControls({ challenge }: { challenge: Challenge }) {
                 <div style={{ display: "flex", gap: 8 }}>
                     <button
                         className="chip-btn chip-btn--ghost"
-                        onClick={() => setBaseSteps((s) => s + 100)}
+                        onClick={() => setBase((s) => s + 100)}
                     >
                         +100
                     </button>
                     <button
                         className="chip-btn chip-btn--ghost"
-                        onClick={() => setBaseSteps((s) => s + 1000)}
+                        onClick={() => setBase((s) => s + 1000)}
                     >
                         +1000
                     </button>
                 </div>
             </div>
         </div>
+    );
+}
+
+/** Kind 0 — accelerometer steps feed the total (motion hook lives here only). */
+function StepControls({ challenge }: { challenge: Challenge }) {
+    const {
+        state: motionState,
+        steps: motionSteps,
+        requestPermission,
+    } = useMotionSteps();
+
+    return (
+        <ScoreCard
+            challenge={challenge}
+            extra={motionSteps}
+            unit="steps"
+            motionUi={
+                <>
+                    {motionState === "prompt" && (
+                        <button
+                            className="pill-btn"
+                            style={{ marginTop: 10 }}
+                            onClick={requestPermission}
+                        >
+                            Enable motion tracking 👟
+                        </button>
+                    )}
+                    {motionState === "granted" && (
+                        <div className="motion-live">
+                            <span className="dot dot--live" />
+                            Walked with your phone:{" "}
+                            {motionSteps.toLocaleString()} steps
+                        </div>
+                    )}
+                    {motionState === "denied" && (
+                        <div className="caption" style={{ marginTop: 10 }}>
+                            Motion access denied — use the controls below
+                        </div>
+                    )}
+                </>
+            }
+        />
+    );
+}
+
+/** Kind 1 — camera reps (accumulated in LeaderboardView) feed the total. */
+function RepControls({
+    challenge,
+    trackerReps,
+}: {
+    challenge: Challenge;
+    trackerReps: number;
+}) {
+    return (
+        <ScoreCard challenge={challenge} extra={trackerReps} unit="reps" />
     );
 }
 
@@ -178,6 +236,32 @@ export function LeaderboardView({
         useChallengeContext();
     const now = useNow();
     const [inviteCopied, setInviteCopied] = useState(false);
+
+    // ---- kind-1 camera tracker state ----
+    // The exercise itself isn't on-chain (only kind is), so it's a local
+    // choice: creator's pick from the wizard, "squat" default for joiners.
+    const [exercise, setExercise] = useState<StoredExercise>("squat");
+    useEffect(() => {
+        if (activeChallengeId != null) {
+            setExercise(loadExerciseChoice(activeChallengeId));
+        }
+    }, [activeChallengeId]);
+    const pickExercise = (ex: StoredExercise) => {
+        setExercise(ex);
+        if (activeChallengeId != null) {
+            saveExerciseChoice(activeChallengeId, ex);
+        }
+    };
+
+    // Tracker sessions reset to 0 when the camera restarts — accumulate
+    // positive deltas so the contribution to the score stays monotonic.
+    const [trackerReps, setTrackerReps] = useState(0);
+    const lastSessionReps = useRef(0);
+    const onRepsChange = useCallback((n: number) => {
+        const delta = n - lastSessionReps.current;
+        lastSessionReps.current = n;
+        if (delta > 0) setTrackerReps((t) => t + delta);
+    }, []);
 
     const sorted = useMemo(
         () =>
@@ -228,6 +312,7 @@ export function LeaderboardView({
     );
     const maxSteps = Math.max(1, ...sorted.map((p) => p.steps));
     const ended = timeLeft <= 0;
+    const isReps = challenge.kind === 1;
 
     return (
         <>
@@ -255,6 +340,49 @@ export function LeaderboardView({
             <div className="pot-pill">
                 Shared pot · {formatMon(challenge.pot)} MON
             </div>
+
+            {/* kind 1: camera rep tracker above the standings */}
+            {isReps && !ended && (
+                <>
+                    <div className="exercise-toggle">
+                        <button
+                            className={`seg-btn${
+                                exercise === "squat" ? " seg-btn--active" : ""
+                            }`}
+                            onClick={() => pickExercise("squat")}
+                        >
+                            🏋️ Squats
+                        </button>
+                        <button
+                            className={`seg-btn${
+                                exercise === "jumping_jack"
+                                    ? " seg-btn--active"
+                                    : ""
+                            }`}
+                            onClick={() => pickExercise("jumping_jack")}
+                        >
+                            ⭐ Jumping jacks
+                        </button>
+                    </div>
+                    <Suspense
+                        fallback={
+                            <div
+                                className="card"
+                                style={{ textAlign: "center" }}
+                            >
+                                <div className="caption">
+                                    Loading camera tracker…
+                                </div>
+                            </div>
+                        }
+                    >
+                        <ExerciseTracker
+                            exercise={exercise}
+                            onRepsChange={onRepsChange}
+                        />
+                    </Suspense>
+                </>
+            )}
 
             {/* ranked rows */}
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -320,7 +448,14 @@ export function LeaderboardView({
                 </div>
             )}
 
-            <StepControls challenge={challenge} />
+            {isReps ? (
+                <RepControls
+                    challenge={challenge}
+                    trackerReps={trackerReps}
+                />
+            ) : (
+                <StepControls challenge={challenge} />
+            )}
 
             {ended && !challenge.settled && (
                 <button

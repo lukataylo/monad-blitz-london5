@@ -228,7 +228,8 @@ export default function LeaderboardScreen({
             <View style={styles.safetyBody}>
               <Text style={styles.safetyTitle}>You're safe for now!</Text>
               <Text style={styles.safetySteps}>
-                {safety.steps.toLocaleString()} steps
+                {safety.steps.toLocaleString()}{" "}
+                {challenge.kind === 1 ? "reps" : "steps"}
               </Text>
               <Text style={styles.safetyLabel}>{safety.label}</Text>
             </View>

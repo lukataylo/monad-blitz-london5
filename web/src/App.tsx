@@ -8,7 +8,7 @@ import { ResultsView } from "./views/ResultsView";
 type View = "join" | "board" | "results";
 
 export default function App() {
-    const { activeChallengeId, challenge, error, demoMode } =
+    const { activeChallengeId, challenge, error, clearError, demoMode } =
         useChallengeContext();
     const [override, setOverride] = useState<View | null>(null);
     // Create-challenge modal lives at App level so its "Challenge is live!"
@@ -40,7 +40,14 @@ export default function App() {
                     Contract not deployed yet — transactions disabled
                 </div>
             )}
-            {error && <div className="error-banner">{error}</div>}
+            {error && (
+                <div className="error-banner" onClick={clearError}>
+                    <span>{error}</span>
+                    <button className="error-dismiss" aria-label="Dismiss">
+                        ✕
+                    </button>
+                </div>
+            )}
 
             {view === "join" && (
                 <JoinView onStartChallenge={() => setShowCreate(true)} />

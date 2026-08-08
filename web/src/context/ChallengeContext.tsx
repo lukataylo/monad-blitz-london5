@@ -15,7 +15,7 @@ import type { Challenge, Participant } from "../lib/types";
 
 const ACTIVE_ID_KEY = "walkthewalk.activeChallengeId";
 
-const POLL_INTERVAL_MS = 4000;
+const POLL_INTERVAL_MS = 6000; // gentler on the public RPC
 // Monad charges on gas_limit, not gas_used — keep these exact limits.
 const GAS_WRITE = 300_000n;
 const GAS_CREATE = 3_000_000n;
@@ -61,6 +61,7 @@ interface ChallengeContextType {
     challenge: Challenge | null;
     loading: boolean;
     error: string | null;
+    clearError: () => void;
     txPending: boolean;
     /** true when the contract address is not configured — writes are disabled */
     demoMode: boolean;
@@ -186,7 +187,6 @@ export function ChallengeProvider({
                     participants,
                 });
                 setChallengeNotFound(false);
-                setError(null);
             } catch (e) {
                 const msg =
                     e instanceof Error ? e.message : "Failed to load challenge";
@@ -197,8 +197,11 @@ export function ChallengeProvider({
                     setChallengeNotFound(true);
                     setError(null);
                 } else {
-                    // Keep the last good challenge; just surface the error.
-                    setError(msg);
+                    // Transient RPC/poll hiccups are common on public testnet
+                    // RPCs — never surface them as a banner. The next poll
+                    // (4s) will recover; the banner is reserved for actions
+                    // the user actually took (writes).
+                    console.warn("[poll] challenge fetch failed:", msg);
                 }
             } finally {
                 fetchInFlight.current = false;
@@ -438,6 +441,7 @@ export function ChallengeProvider({
                 challenge,
                 loading,
                 error,
+                clearError: () => setError(null),
                 txPending,
                 demoMode,
                 challengeNotFound,

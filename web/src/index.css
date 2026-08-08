@@ -874,3 +874,7 @@ button {
   border-radius: 999px;
   padding: 4px 12px;
 }
+
+/* sticky, dismissible error banner */
+.error-banner { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; max-height: 160px; overflow-y: auto; word-break: break-all; }
+.error-dismiss { flex: none; background: none; border: none; font-size: 16px; cursor: pointer; color: inherit; padding: 2px 4px; }

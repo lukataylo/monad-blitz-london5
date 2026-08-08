@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatEther } from "viem";
 import { useWalletContext } from "../context/WalletContext";
 
@@ -48,35 +48,106 @@ export function formatMon(wei: bigint, maxDecimals = 2): string {
     });
 }
 
+/** Wallet glyph — same stroke weight and shape as the tab-bar icon set. */
+function WalletGlyph() {
+    return (
+        <svg
+            className="wallet-glyph"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+        >
+            <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h9A2.5 2.5 0 0 1 18 7.5V8" />
+            <path d="M4 7.5v9A2.5 2.5 0 0 0 6.5 19h11a2.5 2.5 0 0 0 2.5-2.5v-6A2.5 2.5 0 0 0 17.5 8h-11A2.47 2.47 0 0 1 4 7.5z" />
+            <path d="M15.75 13.5h.5" />
+        </svg>
+    );
+}
+
+/**
+ * Wallet summary: icon + balance at a glance. The address is noise for the
+ * common case (and shoulder-surfable), so it lives in a sheet that slides up
+ * when the pill is tapped — where the code itself is the copy button.
+ */
 export function WalletPill() {
     const { address, balance } = useWalletContext();
+    const [open, setOpen] = useState(false);
     const [copied, setCopied] = useState(false);
 
     const copy = () => {
         if (!address) return;
         navigator.clipboard?.writeText(address).catch(() => {});
         setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+        setTimeout(() => setCopied(false), 1600);
     };
 
+    // Esc closes, matching the tap-outside affordance.
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setOpen(false);
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [open]);
+
     return (
-        <button
-            className="wallet-pill"
-            onClick={copy}
-            title={address ?? undefined}
-        >
-            <span className="dot" />
-            {address ? (
-                copied ? (
-                    <span>Copied!</span>
-                ) : (
-                    <span>
-                        {shortAddr(address)} · {formatMon(balance, 3)} MON
-                    </span>
-                )
-            ) : (
-                <span>Creating wallet…</span>
+        <>
+            <button
+                className="wallet-pill"
+                onClick={() => setOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+            >
+                <WalletGlyph />
+                <span>
+                    {address
+                        ? `${formatMon(balance, 3)} MON`
+                        : "Creating wallet…"}
+                </span>
+            </button>
+
+            {open && (
+                <div className="wallet-scrim" onClick={() => setOpen(false)}>
+                    <div
+                        className="wallet-sheet"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Your wallet"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <span className="wallet-grab" aria-hidden />
+                        <div className="caption">Your wallet</div>
+                        <div className="wallet-balance">
+                            {formatMon(balance, 3)} MON
+                        </div>
+                        <div className="caption wallet-hint">
+                            {copied
+                                ? "Copied to clipboard ✓"
+                                : "Tap the code to copy"}
+                        </div>
+                        <button
+                            className={`wallet-code${
+                                copied ? " wallet-code--copied" : ""
+                            }`}
+                            onClick={copy}
+                            disabled={!address}
+                        >
+                            {address ?? "Creating wallet…"}
+                        </button>
+                        <button
+                            className="pill-btn"
+                            onClick={() => setOpen(false)}
+                        >
+                            Done
+                        </button>
+                    </div>
+                </div>
             )}
-        </button>
+        </>
     );
 }

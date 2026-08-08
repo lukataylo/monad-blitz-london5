@@ -3,6 +3,7 @@ import {
     useCallback,
     useContext,
     useEffect,
+    useMemo,
     useRef,
     useState,
 } from "react";
@@ -11,6 +12,7 @@ import { useWalletContext } from "./WalletContext";
 import { walkPoolAbi } from "../lib/abi";
 import { isContractConfigured, WALKPOOL_ADDRESS } from "../lib/chain";
 import { recordMyChallenge } from "../lib/myChallenges";
+import { previewChallenge, previewName } from "../lib/previewChallenge";
 import { emitTx } from "../lib/txFeed";
 import { loadProfile, MAX_NAME_LENGTH } from "../lib/profile";
 import type { Challenge, Participant } from "../lib/types";
@@ -137,6 +139,22 @@ export function ChallengeProvider({
     const { address, publicClient, walletClient, refreshBalance } =
         useWalletContext();
     const demoMode = !isContractConfigured;
+
+    // Dev-only: ?preview=ended|live serves a synthetic challenge so states
+    // that need real on-chain history can be looked at without producing one.
+    // The import.meta.env.DEV guard sits at the CALL SITE, not just inside
+    // previewName(): Vite substitutes it with `false` in a production build,
+    // so the ternaries fold to null and the fixtures tree-shake out of the
+    // bundle entirely rather than shipping as unreachable strings.
+    const preview = useMemo(
+        () => (import.meta.env.DEV ? previewName() : null),
+        []
+    );
+    const previewData = useMemo(
+        () =>
+            import.meta.env.DEV && preview ? previewChallenge(preview) : null,
+        [preview]
+    );
 
     const [activeChallengeId, setActiveChallengeIdState] = useState<
         number | null
@@ -663,14 +681,22 @@ export function ChallengeProvider({
     return (
         <ChallengeContext.Provider
             value={{
-                activeChallengeId,
-                challenge,
-                loading,
+                // In preview mode the synthetic challenge replaces whatever
+                // the chain reads produced, so the screen renders without a
+                // real on-chain challenge. Dev builds only.
+                activeChallengeId: previewData
+                    ? previewData.id
+                    : activeChallengeId,
+                challenge: previewData ?? challenge,
+                loading: previewData ? false : loading,
                 error,
                 clearError: () => setError(null),
                 txPending,
-                demoMode,
-                challengeNotFound,
+                // The consumers gate "is this real chain data?" on these two;
+                // a preview has to clear both or the screen falls back to the
+                // empty state instead of rendering.
+                demoMode: previewData ? false : demoMode,
+                challengeNotFound: previewData ? false : challengeNotFound,
                 setActiveChallengeId,
                 refresh,
                 createChallenge,

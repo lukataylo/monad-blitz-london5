@@ -25,14 +25,14 @@ contract WalkPoolTest is Test {
 
     function _create(uint256 stake) internal returns (uint256 id) {
         vm.prank(alice);
-        id = pool.createChallenge{value: stake}(stake, DURATION);
+        id = pool.createChallenge{value: stake}(stake, DURATION, "Alice");
     }
 
     // 1. create + join happy path
     function test_CreateAndJoin() public {
         uint256 id = _create(STAKE);
         vm.prank(bob);
-        pool.join{value: STAKE}(id);
+        pool.join{value: STAKE}(id, "Bob");
 
         (
             address creator,
@@ -51,21 +51,23 @@ contract WalkPoolTest is Test {
         assertEq(count, 2);
         assertEq(address(pool).balance, 2 * STAKE);
 
-        (address[] memory addrs, , ) = pool.getParticipants(id);
+        (address[] memory addrs, , , string[] memory names) = pool.getParticipants(id);
         assertEq(addrs[0], alice);
         assertEq(addrs[1], bob);
+        assertEq(names[0], "Alice");
+        assertEq(names[1], "Bob");
     }
 
     // 2. wrong stake reverts on create and join
     function test_RevertWrongStake() public {
         vm.prank(alice);
         vm.expectRevert(bytes("stake mismatch"));
-        pool.createChallenge{value: STAKE - 1}(STAKE, DURATION);
+        pool.createChallenge{value: STAKE - 1}(STAKE, DURATION, "Alice");
 
         uint256 id = _create(STAKE);
         vm.prank(bob);
         vm.expectRevert(bytes("stake mismatch"));
-        pool.join{value: STAKE + 1}(id);
+        pool.join{value: STAKE + 1}(id, "Bob");
     }
 
     // 3. join after endTime reverts
@@ -74,7 +76,7 @@ contract WalkPoolTest is Test {
         vm.warp(block.timestamp + DURATION);
         vm.prank(bob);
         vm.expectRevert(bytes("ended"));
-        pool.join{value: STAKE}(id);
+        pool.join{value: STAKE}(id, "Bob");
     }
 
     // 4. submitSteps must be monotonic
@@ -120,9 +122,9 @@ contract WalkPoolTest is Test {
         uint256 stake = 1 ether + 1 wei; // pot = 3 ether + 3 wei -> odd split
         uint256 id = _create(stake);
         vm.prank(bob);
-        pool.join{value: stake}(id);
+        pool.join{value: stake}(id, "Bob");
         vm.prank(carol);
-        pool.join{value: stake}(id);
+        pool.join{value: stake}(id, "Carol");
 
         vm.prank(alice);
         pool.submitSteps(id, 1000);
@@ -139,7 +141,7 @@ contract WalkPoolTest is Test {
         uint256 winnerAmt = pot - runnerUpAmt;
         assertEq(winnerAmt + runnerUpAmt, pot); // dust folded into winner
 
-        (address[] memory addrs, , uint256[] memory payouts) = pool.getParticipants(id);
+        (address[] memory addrs, , uint256[] memory payouts, ) = pool.getParticipants(id);
         assertEq(addrs[1], bob);
         assertEq(payouts[1], winnerAmt);
         assertEq(addrs[2], carol);
@@ -153,7 +155,7 @@ contract WalkPoolTest is Test {
         vm.warp(block.timestamp + DURATION + 1);
         pool.settle(id);
 
-        (, , uint256[] memory payouts) = pool.getParticipants(id);
+        (, , uint256[] memory payouts, ) = pool.getParticipants(id);
         assertEq(payouts[0], STAKE);
 
         uint256 before = alice.balance;
@@ -175,7 +177,7 @@ contract WalkPoolTest is Test {
     function test_ClaimAndDoubleClaim() public {
         uint256 id = _create(STAKE);
         vm.prank(bob);
-        pool.join{value: STAKE}(id);
+        pool.join{value: STAKE}(id, "Bob");
 
         vm.prank(alice);
         pool.submitSteps(id, 100);
@@ -209,9 +211,9 @@ contract WalkPoolTest is Test {
     function test_TieEarlierJoinerWins() public {
         uint256 id = _create(STAKE);
         vm.prank(bob);
-        pool.join{value: STAKE}(id);
+        pool.join{value: STAKE}(id, "Bob");
         vm.prank(carol);
-        pool.join{value: STAKE}(id);
+        pool.join{value: STAKE}(id, "Carol");
 
         vm.prank(alice);
         pool.submitSteps(id, 5000);
@@ -224,10 +226,57 @@ contract WalkPoolTest is Test {
         pool.settle(id);
 
         uint256 pot = 3 * STAKE;
-        (, , uint256[] memory payouts) = pool.getParticipants(id);
+        (, , uint256[] memory payouts, ) = pool.getParticipants(id);
         // alice joined first: she keeps the winner slot on the tie
         assertEq(payouts[0], pot - pot * 30 / 100);
         assertEq(payouts[1], pot * 30 / 100);
         assertEq(payouts[2], 0);
+    }
+
+    // 13. names stored + returned for creator and joiners; Joined emits names;
+    //     empty name allowed
+    function test_NamesStoredAndEmitted() public {
+        vm.prank(alice);
+        vm.expectEmit(true, true, false, true);
+        emit WalkPool.Joined(0, alice, "Alice");
+        uint256 id = pool.createChallenge{value: STAKE}(STAKE, DURATION, "Alice");
+
+        vm.prank(bob);
+        vm.expectEmit(true, true, false, true);
+        emit WalkPool.Joined(id, bob, "Bob");
+        pool.join{value: STAKE}(id, "Bob");
+
+        vm.prank(carol);
+        pool.join{value: STAKE}(id, ""); // empty name allowed
+
+        (address[] memory addrs, , , string[] memory names) = pool.getParticipants(id);
+        assertEq(addrs.length, 3);
+        assertEq(names.length, 3);
+        assertEq(names[0], "Alice");
+        assertEq(names[1], "Bob");
+        assertEq(names[2], "");
+    }
+
+    // 14. names longer than 32 bytes revert on create and join
+    function test_RevertNameTooLong() public {
+        string memory longName = "This display name is 33 bytes !!!"; // 33 bytes
+        assertEq(bytes(longName).length, 33);
+
+        vm.prank(alice);
+        vm.expectRevert(bytes("name too long"));
+        pool.createChallenge{value: STAKE}(STAKE, DURATION, longName);
+
+        uint256 id = _create(STAKE);
+        vm.prank(bob);
+        vm.expectRevert(bytes("name too long"));
+        pool.join{value: STAKE}(id, longName);
+
+        // exactly 32 bytes is fine
+        string memory maxName = "Exactly thirty-two bytes long!!!";
+        assertEq(bytes(maxName).length, 32);
+        vm.prank(bob);
+        pool.join{value: STAKE}(id, maxName);
+        (, , , string[] memory names) = pool.getParticipants(id);
+        assertEq(names[1], maxName);
     }
 }

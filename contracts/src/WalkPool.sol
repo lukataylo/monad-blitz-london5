@@ -13,6 +13,7 @@ contract WalkPool {
         bool joined;
         uint256 payout;
         bool claimed;
+        string name; // display name, max 32 bytes, may be empty
     }
 
     struct Challenge {
@@ -33,19 +34,23 @@ contract WalkPool {
         uint256 stake,
         uint64 endTime
     );
-    event Joined(uint256 indexed id, address indexed who);
+    event Joined(uint256 indexed id, address indexed who, string name);
     event StepsSubmitted(uint256 indexed id, address indexed who, uint256 steps);
     event Settled(uint256 indexed id, address indexed winner, address indexed runnerUp);
     event Claimed(uint256 indexed id, address indexed who, uint256 amount);
 
     /// @notice Create a challenge; the creator stakes and auto-joins.
-    function createChallenge(uint256 stake, uint64 duration)
+    /// @dev The creator's display name is emitted via the same `Joined` event
+    ///      as every other participant (ChallengeCreated stays name-free), so
+    ///      clients index names from a single event.
+    function createChallenge(uint256 stake, uint64 duration, string calldata name)
         external
         payable
         returns (uint256 id)
     {
         require(msg.value == stake, "stake mismatch");
         require(duration > 0, "duration zero");
+        require(bytes(name).length <= 32, "name too long");
 
         id = nextId++;
         Challenge storage c = challenges[id];
@@ -55,23 +60,27 @@ contract WalkPool {
 
         c.participants.push(msg.sender);
         c.info[msg.sender].joined = true;
+        c.info[msg.sender].name = name;
 
         emit ChallengeCreated(id, msg.sender, stake, c.endTime);
-        emit Joined(id, msg.sender);
+        emit Joined(id, msg.sender, name);
     }
 
     /// @notice Join an open challenge by matching its stake.
-    function join(uint256 id) external payable {
+    /// @param name Display name (max 32 bytes; empty allowed, client renders a fallback).
+    function join(uint256 id, string calldata name) external payable {
         Challenge storage c = challenges[id];
         require(c.creator != address(0), "no challenge");
         require(block.timestamp < c.endTime, "ended");
         require(msg.value == c.stake, "stake mismatch");
         require(!c.info[msg.sender].joined, "already joined");
+        require(bytes(name).length <= 32, "name too long");
 
         c.participants.push(msg.sender);
         c.info[msg.sender].joined = true;
+        c.info[msg.sender].name = name;
 
-        emit Joined(id, msg.sender);
+        emit Joined(id, msg.sender, name);
     }
 
     /// @notice Submit a (monotonically non-decreasing) step count before the deadline.
@@ -179,14 +188,15 @@ contract WalkPool {
         pot = c.stake * participantCount;
     }
 
-    /// @notice Parallel arrays of participants, their steps, and their payouts.
+    /// @notice Parallel arrays of participants, their steps, payouts, and display names.
     function getParticipants(uint256 id)
         external
         view
         returns (
             address[] memory addrs,
             uint256[] memory steps,
-            uint256[] memory payouts
+            uint256[] memory payouts,
+            string[] memory names
         )
     {
         Challenge storage c = challenges[id];
@@ -194,11 +204,13 @@ contract WalkPool {
         addrs = new address[](count);
         steps = new uint256[](count);
         payouts = new uint256[](count);
+        names = new string[](count);
         for (uint256 i = 0; i < count; i++) {
             address who = c.participants[i];
             addrs[i] = who;
             steps[i] = c.info[who].steps;
             payouts[i] = c.info[who].payout;
+            names[i] = c.info[who].name;
         }
     }
 }

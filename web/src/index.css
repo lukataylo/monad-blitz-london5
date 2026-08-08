@@ -6,6 +6,9 @@
   --pink: #f6c8d8;
   --ochre: #e8b84b;
   --muted: #8a8577;
+  /* mascot body fill — flips to cream on the selected (lime) card so the
+     walker doesn't disappear into the background */
+  --art-lime: #d9e856;
   --card-border: rgba(17, 17, 17, 0.06);
 }
 
@@ -1317,6 +1320,7 @@ button {
 .pace-card--active {
   border-color: var(--ink);
   background: var(--lime);
+  --art-lime: var(--cream);
 }
 
 .pace-emoji {
@@ -1365,6 +1369,208 @@ button {
   flex-direction: row;
   align-items: center;
   gap: 12px;
+}
+
+/* the mascot illustrations in the kind picker (see components/KindArt.tsx) */
+.kind-art {
+  width: 72px;
+  height: 72px;
+  flex: none;
+  display: block;
+  overflow: visible;
+}
+
+/* Idle loops so each card acts out its own sport. Everything animates in
+   viewBox units, so the motion scales with the artwork. */
+.kind-art * {
+  transform-box: view-box;
+}
+
+/* walking: limbs swing from shoulder/hip, body bobs at twice the stride rate */
+.ka-arm-l,
+.ka-arm-r,
+.ka-leg-l,
+.ka-leg-r {
+  animation: ka-swing 0.62s ease-in-out infinite alternate;
+}
+
+.ka-arm-l {
+  transform-origin: 40px 57px;
+}
+
+.ka-arm-r {
+  transform-origin: 83px 57px;
+  animation-direction: alternate-reverse;
+}
+
+.ka-leg-l {
+  transform-origin: 53px 78px;
+  animation-name: ka-stride;
+  animation-direction: alternate-reverse;
+}
+
+.ka-leg-r {
+  transform-origin: 68px 78px;
+  animation-name: ka-stride;
+}
+
+.ka-bob {
+  transform-origin: 60px 100px;
+  animation: ka-bob 0.62s ease-in-out infinite;
+}
+
+@keyframes ka-swing {
+  from {
+    transform: rotate(-11deg);
+  }
+  to {
+    transform: rotate(11deg);
+  }
+}
+
+@keyframes ka-stride {
+  from {
+    transform: rotate(-15deg);
+  }
+  to {
+    transform: rotate(15deg);
+  }
+}
+
+@keyframes ka-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+
+/* squats: sink from the feet, hold at the bottom, spring back up */
+.ka-squat {
+  transform-origin: 60px 106px;
+  animation: ka-squat 1.5s ease-in-out infinite;
+}
+
+@keyframes ka-squat {
+  0%,
+  100% {
+    transform: scaleY(1) scaleX(1);
+  }
+  35%,
+  55% {
+    transform: scaleY(0.84) scaleX(1.06);
+  }
+  75% {
+    transform: scaleY(1.04) scaleX(0.98);
+  }
+}
+
+/* jumping: crouch, launch, hang, land — legs tuck at the top of the arc */
+.ka-jump {
+  transform-origin: 65px 104px;
+  animation: ka-jump 1.25s cubic-bezier(0.4, 0, 0.4, 1) infinite;
+}
+
+.ka-tuck {
+  transform-origin: 64px 84px;
+  animation: ka-tuck 1.25s ease-in-out infinite;
+}
+
+.ka-ticks {
+  animation: ka-ticks 1.25s ease-out infinite;
+}
+
+@keyframes ka-jump {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1) scaleX(1);
+  }
+  12% {
+    transform: translateY(2px) scaleY(0.9) scaleX(1.06);
+  }
+  40%,
+  55% {
+    transform: translateY(-12px) scaleY(1.04) scaleX(0.97);
+  }
+  88% {
+    transform: translateY(2px) scaleY(0.92) scaleX(1.05);
+  }
+}
+
+@keyframes ka-tuck {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  45% {
+    transform: rotate(-14deg);
+  }
+}
+
+@keyframes ka-ticks {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0;
+  }
+}
+
+/* results sign-off: the thumbs-up character under "Run it back" */
+.cheer-art {
+  width: 156px;
+  height: 156px;
+  display: block;
+  margin: 10px auto 0;
+  flex: none;
+  overflow: visible;
+  animation: ka-cheer-bob 2.4s ease-in-out infinite;
+}
+
+.cheer-art * {
+  transform-box: view-box;
+}
+
+.ka-cheer-arm {
+  transform-origin: 50px 68px;
+  animation: ka-cheer-pump 2.4s ease-in-out infinite;
+}
+
+@keyframes ka-cheer-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(-1.5deg);
+  }
+}
+
+@keyframes ka-cheer-pump {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  40%,
+  60% {
+    transform: rotate(-9deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kind-art *,
+  .kind-art *::before,
+  .kind-art *::after,
+  .cheer-art,
+  .cheer-art * {
+    animation: none !important;
+  }
 }
 
 .rec-badge {

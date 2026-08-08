@@ -8,6 +8,7 @@ import {
 } from "../lib/exerciseChoice";
 import { InviteQR } from "./InviteQR";
 import { getKindCopy } from "../lib/kindCopy";
+import { JumpArt, SquatArt, WalkArt } from "./KindArt";
 import { loadProfile } from "../lib/profile";
 
 // Start-a-challenge flow: a step wizard ending in the "Challenge is live!"
@@ -35,6 +36,7 @@ const KINDS = [
     {
         key: "steps",
         emoji: "🚶",
+        art: WalkArt,
         name: "Steps",
         desc: "Walk it out — phone counts your steps",
         kind: 0,
@@ -43,6 +45,7 @@ const KINDS = [
     {
         key: "squat",
         emoji: "🏋️",
+        art: SquatArt,
         name: "Squats",
         desc: "Camera counts your squats",
         kind: 1,
@@ -51,6 +54,7 @@ const KINDS = [
     {
         key: "jumping_jack",
         emoji: "⭐",
+        art: JumpArt,
         name: "Jumping jacks",
         desc: "Camera counts your jacks",
         kind: 1,
@@ -415,9 +419,7 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                                     }`}
                                     onClick={() => setKindKey(k.key)}
                                 >
-                                    <span className="pace-emoji">
-                                        {k.emoji}
-                                    </span>
+                                    <k.art className="kind-art" />
                                     <span>
                                         <span className="pace-name">
                                             {k.name}

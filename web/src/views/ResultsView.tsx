@@ -4,6 +4,7 @@ import { Avatar, formatMon } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
 import { useWalletContext } from "../context/WalletContext";
 import { copyForChallenge } from "../lib/kindCopy";
+import { CheerArt } from "../components/KindArt";
 
 const CONFETTI_COLORS = ["#D9E856", "#C8BDF4", "#F6C8D8", "#E8B84B", "#111111"];
 const CONFETTI_COUNT = 22;
@@ -389,6 +390,9 @@ export function ResultsView({
             <button className="pill-btn pill-btn--outline" onClick={runItBack}>
                 Run it back
             </button>
+
+            {/* sign-off — fills the dead space under the button */}
+            <CheerArt className="cheer-art" />
         </>
     );
 }

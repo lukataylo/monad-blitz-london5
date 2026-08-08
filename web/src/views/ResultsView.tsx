@@ -119,7 +119,13 @@ export function ResultsView({
         challenge != null && Date.now() / 1000 > challenge.endTime;
     // Ended but not yet settled, and the viewer has money in it: fire settle
     // from whoever's watching so the win moment is fully automatic.
-    const needsSettle = challenge != null && ended && !isSettled && hasStake;
+    // The +4s buffer absorbs client-clock/block.timestamp skew: firing at
+    // the exact deadline made the chain revert "not ended" mid-demo.
+    const needsSettle =
+        challenge != null &&
+        Date.now() / 1000 > challenge.endTime + 4 &&
+        !isSettled &&
+        hasStake;
 
     const [claimState, setClaimState] = useState<ClaimState>(() =>
         challengeId != null && wasClaimed(challengeId) ? "claimed" : "idle"
@@ -162,12 +168,27 @@ export function ResultsView({
     // Auto-settle: challenge over but nobody pulled the trigger yet. A
     // concurrent settle from another device reverting is treated as success
     // inside the context ("already") — the next poll shows payouts either way.
+    // A "failed" outcome (e.g. the chain briefly saying "not ended" through
+    // clock skew) re-arms after a short pause so the next poll re-render
+    // retries instead of leaving the pot stuck unsettled.
+    const [settleRetry, setSettleRetry] = useState(0);
     useEffect(() => {
         if (!needsSettle || challengeId == null) return;
         if (settleFiredFor.current === challengeId) return;
         settleFiredFor.current = challengeId;
-        void settle();
-    }, [needsSettle, challengeId, settle]);
+        void settle().then((outcome) => {
+            if (outcome === "failed") {
+                setTimeout(() => {
+                    if (settleFiredFor.current === challengeId) {
+                        settleFiredFor.current = null;
+                        // State bump so this effect actually re-runs — a ref
+                        // reset alone never re-triggers it.
+                        setSettleRetry((n) => n + 1);
+                    }
+                }, 6000);
+            }
+        });
+    }, [needsSettle, challengeId, settle, settleRetry]);
 
     const sorted = useMemo(
         () =>

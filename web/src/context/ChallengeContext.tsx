@@ -74,6 +74,17 @@ function initialActiveId(): number | null {
         );
         if (fromUrl != null) {
             localStorage.setItem(ACTIVE_ID_KEY, String(fromUrl));
+            // Keep the invite context for THIS TAB: login does a full
+            // location.reload(), and stripping ?c= below would otherwise
+            // erase the invite mid-onboarding — the second phone then lands
+            // on the generic home screen with no join CTA at all.
+            // sessionStorage survives the reload but dies with the tab, so
+            // old invites never resurrect on later visits.
+            try {
+                sessionStorage.setItem("walkthewalk.invitedId", String(fromUrl));
+            } catch {
+                /* storage unavailable — URL param already consumed */
+            }
             // Consume the param: otherwise every refresh resurrects this id
             // even after the user leaves the challenge ("Run it back").
             const u = new URL(window.location.href);
@@ -510,7 +521,20 @@ export function ChallengeProvider({
                 setActiveChallengeId(id);
                 await Promise.all([fetchChallenge(id), refreshBalance()]);
             } catch (e) {
-                setError(e instanceof Error ? e.message : "join failed");
+                const msg = e instanceof Error ? e.message : "join failed";
+                // A raw viem dump helps nobody mid-demo — map the two
+                // common failures to something actionable.
+                if (/insufficient|exceeds the balance/i.test(msg)) {
+                    setError(
+                        "Not enough MON to cover the stake + gas. Top up in the Wallet tab and try again."
+                    );
+                } else if (/429|rate limit/i.test(msg)) {
+                    setError(
+                        "The network is busy — wait a few seconds and tap Join again."
+                    );
+                } else {
+                    setError(msg);
+                }
             } finally {
                 setTxPending(false);
             }
@@ -555,16 +579,50 @@ export function ChallengeProvider({
                 // Pre-flight eth_call: Monad charges the full gas LIMIT, so a
                 // doomed tx costs real money. A revert here that matches the
                 // "already done" reason is success — just re-sync state.
-                try {
-                    await simulate();
-                } catch (simErr) {
-                    const msg =
-                        simErr instanceof Error ? simErr.message : "";
-                    if (alreadyDoneRe.test(msg)) {
-                        await afterWrite();
-                        return "already";
+                // Settle has one extra transient revert: "not ended". The
+                // client clock and block.timestamp disagree by a few seconds,
+                // so a settle fired right at the deadline can be early from
+                // the chain's point of view. Retry quietly instead of
+                // erroring — the deadline passes on-chain within seconds.
+                const NOT_ENDED_RETRIES = 5;
+                const NOT_ENDED_WAIT_MS = 4000;
+                let attempt = 0;
+                for (;;) {
+                    try {
+                        await simulate();
+                        break;
+                    } catch (simErr) {
+                        const msg =
+                            simErr instanceof Error ? simErr.message : "";
+                        if (alreadyDoneRe.test(msg)) {
+                            await afterWrite();
+                            return "already";
+                        }
+                        if (
+                            functionName === "settle" &&
+                            /not ended/i.test(msg) &&
+                            attempt < NOT_ENDED_RETRIES
+                        ) {
+                            attempt++;
+                            await new Promise((r) =>
+                                setTimeout(r, NOT_ENDED_WAIT_MS)
+                            );
+                            continue;
+                        }
+                        if (
+                            functionName === "settle" &&
+                            /not ended/i.test(msg)
+                        ) {
+                            // Still early after ~20s of retries — bail
+                            // WITHOUT the raw error wall; the caller retries
+                            // on the next poll tick.
+                            console.warn(
+                                "[settle] chain still says 'not ended' — will retry"
+                            );
+                            return "failed";
+                        }
+                        throw simErr;
                     }
-                    throw simErr;
                 }
                 const t0 = performance.now();
                 const hash = await walletClient.writeContract({

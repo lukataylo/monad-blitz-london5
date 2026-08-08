@@ -2609,3 +2609,10 @@ button {
 [data-theme="midnight"] .tx-toast a {
   color: #5a6a00;
 }
+
+.invite-qr-caption--sub {
+  font-weight: 600;
+  opacity: 0.8;
+  text-align: center;
+  max-width: 220px;
+}

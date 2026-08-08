@@ -11,12 +11,27 @@ import { loadProfile } from "../lib/profile";
 
 const FAUCET_URL = "https://testnet.monad.xyz";
 
-/** Challenge id from the invite link (?c=123), captured once on load. */
+// The join tx costs its full 200k gas LIMIT on Monad (~0.02 MON) on top of
+// the stake — every join CTA must gate on stake + headroom or a broke wallet
+// fires a doomed tx and gets a raw viem error wall.
+const JOIN_GAS_HEADROOM_WEI = 25_000_000_000_000_000n; // 0.025 MON
+
+/**
+ * Challenge id from the invite link (?c=123), captured once on load.
+ * Falls back to the sessionStorage marker ChallengeContext writes when it
+ * consumes the param — login's location.reload() lands back here WITHOUT
+ * ?c= in the URL, and without this fallback the second phone loses the
+ * whole invite flow (no hero, no join CTA).
+ */
 const INVITED_ID: number | null = (() => {
     try {
         const v = new URLSearchParams(window.location.search).get("c");
         if (v != null && v !== "" && !Number.isNaN(Number(v))) {
             return Number(v);
+        }
+        const stored = sessionStorage.getItem("walkthewalk.invitedId");
+        if (stored != null && /^\d{1,10}$/.test(stored)) {
+            return Number(stored);
         }
     } catch {
         /* no URL access — ignore */
@@ -152,8 +167,7 @@ function InviteHero({
     // Stake alone isn't enough — the join tx costs its full 200k gas LIMIT on
     // Monad (~0.02 MON). Without headroom, balance === stake unlocks the CTA
     // and the tx dies with a raw "insufficient funds" error.
-    const GAS_HEADROOM_WEI = 25_000_000_000_000_000n; // 0.025 MON
-    const needsFunds = balance < challenge.stake + GAS_HEADROOM_WEI;
+    const needsFunds = balance < challenge.stake + JOIN_GAS_HEADROOM_WEI;
     const isReps = challenge.kind === 1;
     const copy = copyForChallenge(
         challenge.kind,
@@ -426,6 +440,7 @@ export function JoinView({
         join,
         setActiveChallengeId,
     } = useChallengeContext();
+    const { balance: walletBalance } = useWalletContext();
 
     // Every challenge this device created/joined — feeds the "Ongoing" list.
     const { summaries, refresh: refreshMine } = useMyChallenges();
@@ -469,6 +484,14 @@ export function JoinView({
     const hasActive =
         activeChallengeId != null &&
         challenge != null &&
+        !demoMode &&
+        !challengeNotFound;
+    // An id is selected but the fetch hasn't landed (slow/throttled RPC).
+    // Without this the screen falls through to the marketing landing, which
+    // reads as "your challenge vanished" — worst possible during a demo.
+    const loadingActive =
+        activeChallengeId != null &&
+        challenge == null &&
         !demoMode &&
         !challengeNotFound;
 
@@ -517,6 +540,11 @@ export function JoinView({
 
     const startOwnFromInvite = () => {
         setInviteDismissed(true);
+        try {
+            sessionStorage.removeItem("walkthewalk.invitedId");
+        } catch {
+            /* ignore */
+        }
         // Drop the dead invite id so it doesn't stick around in storage.
         if (demoMode || challengeNotFound) setActiveChallengeId(null);
         requireProfile(onStartChallenge);
@@ -583,6 +611,13 @@ export function JoinView({
                         Start your own challenge →
                     </button>
                 </OnboardScreen>
+            ) : loadingActive ? (
+                <>
+                    <InviteSkeleton />
+                    <div className="caption" style={{ textAlign: "center" }}>
+                        Loading challenge #{activeChallengeId} from chain…
+                    </div>
+                </>
             ) : hasActive ? (
                 <>
                     {/* hero — real pot for the loaded challenge. Rep
@@ -654,6 +689,45 @@ export function JoinView({
                         goes to starting the next one instead. */}
                     {challenge.participants.some((p) => p.isYou) ? (
                         createCard
+                    ) : walletBalance <
+                      challenge.stake + JOIN_GAS_HEADROOM_WEI ? (
+                        /* not enough MON: gate the join instead of firing a
+                           doomed tx — unlocks via the balance poll */
+                        <div className="card card--lavender">
+                            <div className="caption caption--ink">
+                                Almost there
+                            </div>
+                            <div
+                                style={{
+                                    fontSize: 20,
+                                    fontWeight: 800,
+                                    margin: "6px 0 10px",
+                                }}
+                            >
+                                You need ~
+                                {formatMon(
+                                    challenge.stake + JOIN_GAS_HEADROOM_WEI,
+                                    3
+                                )}{" "}
+                                MON to join
+                            </div>
+                            <div
+                                className="caption caption--ink"
+                                style={{ marginBottom: 10 }}
+                            >
+                                Stake {formatMon(challenge.stake, 3)} + gas.
+                                Top up in the Wallet tab — this unlocks
+                                automatically when it lands.
+                            </div>
+                            <a
+                                href={FAUCET_URL}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="faucet-link"
+                            >
+                                testnet.monad.xyz
+                            </a>
+                        </div>
                     ) : (
                         <div className="card card--lavender">
                             <div className="caption caption--ink">

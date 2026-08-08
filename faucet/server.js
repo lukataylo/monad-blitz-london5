@@ -54,8 +54,17 @@ const HOUR_MS = 60 * 60 * 1000;
 
 /** ip -> array of drip timestamps (ms) within the last hour */
 const ipDrips = new Map();
-/** lowercased addresses that have already been dripped this process lifetime */
-const drippedAddresses = new Set();
+/**
+ * lowercased address -> last drip timestamp (ms). A cooldown, not a
+ * lifetime ban: wallets legitimately run dry mid-hackathon (stakes + gas),
+ * and "already funded" with a zero balance was a dead end.
+ */
+const addressDrips = new Map();
+const ADDRESS_COOLDOWN_MS = 10 * 60 * 1000; // one drip per address per 10 min
+
+// Top-up threshold: wallets holding at least this much don't need the
+// faucet (covers a 0.1 stake + gas with room to spare). Below it, drip.
+const LOW_WATER_WEI = parseEther(process.env.LOW_WATER_MON || "0.2");
 
 function ipRateLimited(ip) {
   const now = Date.now();
@@ -73,6 +82,9 @@ function recordIpDrip(ip) {
 // Periodic cleanup so the maps don't grow unbounded.
 setInterval(() => {
   const now = Date.now();
+  for (const [addr, ts] of addressDrips) {
+    if (now - ts > ADDRESS_COOLDOWN_MS) addressDrips.delete(addr);
+  }
   for (const [ip, stamps] of ipDrips) {
     const fresh = stamps.filter((t) => now - t < HOUR_MS);
     if (fresh.length === 0) ipDrips.delete(ip);
@@ -154,22 +166,29 @@ app.post("/drip", async (req, res) => {
   // concurrent requests all pass the check before any of them records.
   recordIpDrip(ip);
 
-  if (drippedAddresses.has(addressKey)) {
-    return res.status(409).json({ ok: false, reason: "already-funded" });
+  const onCooldown = () => {
+    const last = addressDrips.get(addressKey);
+    return last != null && Date.now() - last < ADDRESS_COOLDOWN_MS;
+  };
+
+  if (onCooldown()) {
+    return res.status(409).json({ ok: false, reason: "cooldown" });
   }
 
   try {
     const result = await enqueueDrip(async () => {
       // Re-check inside the queue so concurrent requests for the same
       // address can't both pass the guards.
-      if (drippedAddresses.has(addressKey)) {
-        return { status: 409, body: { ok: false, reason: "already-funded" } };
+      if (onCooldown()) {
+        return { status: 409, body: { ok: false, reason: "cooldown" } };
       }
 
-      // Only fund brand-new wallets: on-chain balance must be exactly zero.
+      // Top-up model: fund any wallet that can't afford to play (below the
+      // low-water mark), not just brand-new zero-balance ones — accounts
+      // that spent their drip on stakes+gas were getting stranded.
       const targetBalance = await publicClient.getBalance({ address });
-      if (targetBalance !== 0n) {
-        drippedAddresses.add(addressKey);
+      if (targetBalance >= LOW_WATER_WEI) {
+        addressDrips.set(addressKey, Date.now());
         return { status: 409, body: { ok: false, reason: "already-funded" } };
       }
 
@@ -186,7 +205,7 @@ app.post("/drip", async (req, res) => {
         gas: GAS_LIMIT, // Monad charges on gas_limit — explicit 21000
       });
 
-      drippedAddresses.add(addressKey);
+      addressDrips.set(addressKey, Date.now());
       console.log(`Dripped ${DRIP_MON} MON to ${address} (tx ${txHash})`);
       return { status: 200, body: { ok: true, txHash } };
     });

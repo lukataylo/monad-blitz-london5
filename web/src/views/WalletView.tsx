@@ -155,7 +155,10 @@ export function WalletView() {
 
             <div className="card">
                 <div className="caption">Top up</div>
-                {balance === 0n ? (
+                {/* The faucet tops up any wallet below its low-water mark
+                    (0.2 MON) — not just brand-new ones. Wallets that spent
+                    their first drip on stakes+gas were getting stranded. */}
+                {balance < 200_000_000_000_000_000n ? (
                     <>
                         <button
                             className="pill-btn"
@@ -179,8 +182,8 @@ export function WalletView() {
                         )}
                         {dripStatus === "already" && (
                             <div className="drip-status" style={{ marginTop: 10 }}>
-                                No drip — wallet already funded, or the faucet
-                                is busy. Try again in a minute.
+                                No drip just now — one per wallet per 10
+                                minutes. Try again shortly.
                             </div>
                         )}
                         {!hasFaucet && (
@@ -191,8 +194,8 @@ export function WalletView() {
                     </>
                 ) : (
                     <div className="wallet-note">
-                        Need more? The faucet drips only to empty wallets — ask
-                        the organizer.
+                        You're stocked — the faucet tops up wallets that drop
+                        below 0.2 MON.
                     </div>
                 )}
             </div>

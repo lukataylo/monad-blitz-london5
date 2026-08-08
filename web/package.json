@@ -1,0 +1,27 @@
+{
+  "name": "walkthewalk-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "start": "vite preview --host 0.0.0.0 --port ${PORT:-4173}",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "^2.55.11",
+    "vite": "^8.2.0",
+    "@vitejs/plugin-react": "^6.0.4",
+    "typescript": "~6.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "oxlint": "^1.75.0"
+  }
+}

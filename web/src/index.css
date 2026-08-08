@@ -115,6 +115,91 @@ button {
   user-select: none;
 }
 
+/* ---- onboarding landing: copy on top, full-bleed art band below ---- */
+.onboard {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  /* cancel the shell gap so the band can sit flush at the bottom */
+  margin-bottom: -48px;
+}
+
+.onboard-copy {
+  /* break out of the shell's 16px padding so this 24px is measured from the
+     viewport edge rather than stacking on top of it */
+  margin: 0 -16px;
+  padding: 18px 24px 0;
+}
+
+.onboard-title {
+  /* scales with the screen but never so wide that "Win together." wraps to
+     a third line — the two-line break is deliberate */
+  font-size: clamp(38px, 12.4vw, 52px);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  margin-top: 14px;
+  text-wrap: balance;
+}
+
+.onboard-sub {
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.45;
+  opacity: 0.6;
+  margin-top: 16px;
+  max-width: 30ch;
+}
+
+/* secondary action riding on the art band — ink on colour, centred */
+.onboard-code-link {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  text-align: center;
+  color: var(--ink);
+  opacity: 0.75;
+}
+
+.onboard-code {
+  margin-bottom: 12px;
+}
+
+/* art band — breaks out of the shell's 16px padding to reach the edges,
+   crops its own artwork, and carries the primary CTA on top of it */
+.onboard-band {
+  position: relative;
+  margin: auto -16px 0;
+  min-height: 320px;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+.onboard-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.onboard-cta {
+  position: relative;
+  width: 100%;
+  padding: 0 16px 78px;
+}
+
+.onboard-cta .pill-btn {
+  background: #ffffff;
+  color: var(--ink);
+  box-shadow: 0 6px 22px rgba(17, 17, 17, 0.14);
+}
+
+.onboard-cta .pill-btn:disabled {
+  opacity: 0.75;
+}
+
 /* ---- buttons ---- */
 .pill-btn {
   display: flex;
@@ -506,6 +591,35 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/* full-screen variant — the account gate is the whole first run, so it takes
+   the screen instead of floating over a page that isn't usable yet */
+.modal-overlay--full {
+  padding: 0;
+  background: var(--cream);
+  align-items: stretch;
+}
+
+.modal-sheet--full {
+  max-width: 420px;
+  max-height: none;
+  background: var(--cream);
+  border: 0;
+  border-radius: 0;
+  padding: calc(28px + env(safe-area-inset-top)) 24px
+    calc(28px + env(safe-area-inset-bottom));
+  gap: 16px;
+  /* centred while it fits, top-aligned once it overflows, so a long step
+     (the password reveal) never has its head cut off */
+  justify-content: safe center;
+}
+
+.modal-sheet--full .modal-title {
+  font-size: 34px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  margin-bottom: 2px;
 }
 
 .modal-title {
@@ -1863,4 +1977,13 @@ button {
 [data-theme="sorbet"] .tab-bar {
   background: rgba(253, 238, 228, 0.82);
   border-top: 0.5px solid rgba(32, 21, 16, 0.12);
+}
+
+/* text riding the landing band sits on pastel lime in EVERY theme — pin it
+   dark so midnight's light ink doesn't wash it out */
+.onboard-cta .caption,
+.onboard-cta .text-btn,
+[data-theme="midnight"] .onboard-cta .caption,
+[data-theme="midnight"] .onboard-cta .text-btn {
+  color: #111111;
 }

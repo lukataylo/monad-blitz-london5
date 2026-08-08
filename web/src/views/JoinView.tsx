@@ -1,24 +1,36 @@
-import { useMemo, useState } from "react";
-import { parseEther } from "viem";
+import { useMemo, useRef, useState } from "react";
+import { ProfileModal } from "../components/ProfileModal";
 import { Avatar, formatMon, WalletPill } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
 import { MOCK_CHALLENGE } from "../lib/mock";
+import { loadProfile } from "../lib/profile";
+import { parseEther } from "viem";
 
 const DEFAULT_STAKE = parseEther("0.1");
-const DEFAULT_DURATION_SEC = 3600;
 
-export function JoinView() {
-    const {
-        activeChallengeId,
-        challenge,
-        txPending,
-        demoMode,
-        createChallenge,
-        join,
-    } = useChallengeContext();
+export function JoinView({
+    onStartChallenge,
+}: {
+    onStartChallenge: () => void;
+}) {
+    const { activeChallengeId, challenge, txPending, demoMode, join } =
+        useChallengeContext();
 
     const [code, setCode] = useState("");
     const [linkCopied, setLinkCopied] = useState(false);
+    // Profile gate: first join/create asks for name + email, then continues
+    // the original action.
+    const [showProfile, setShowProfile] = useState(false);
+    const pendingAction = useRef<(() => void) | null>(null);
+
+    const requireProfile = (action: () => void) => {
+        if (loadProfile() != null) {
+            action();
+        } else {
+            pendingAction.current = action;
+            setShowProfile(true);
+        }
+    };
 
     // Show real numbers when a challenge is loaded; mock otherwise.
     const display = challenge ?? MOCK_CHALLENGE;
@@ -34,21 +46,24 @@ export function JoinView() {
         [activeChallengeId]
     );
 
-    const stakeAndJoin = async () => {
+    const stakeAndJoin = () => {
         // Join by active id even if the first fetch hasn't resolved yet —
         // join() reads the stake from chain itself.
         if (activeChallengeId != null) {
-            await join(activeChallengeId);
+            const id = activeChallengeId;
+            requireProfile(() => void join(id));
         } else {
-            await createChallenge(DEFAULT_STAKE, DEFAULT_DURATION_SEC);
+            requireProfile(onStartChallenge);
         }
     };
 
-    const joinByCode = async () => {
+    const joinByCode = () => {
         const id = Number(code.trim());
         if (code.trim() === "" || Number.isNaN(id) || id < 0) return;
-        await join(id);
-        setCode("");
+        requireProfile(() => {
+            void join(id);
+            setCode("");
+        });
     };
 
     const copyInvite = () => {
@@ -116,7 +131,7 @@ export function JoinView() {
                         ? "Confirming…"
                         : activeChallengeId != null
                           ? "Stake & Join →"
-                          : "Stake & Start →"}
+                          : "Start a challenge →"}
                 </button>
                 {!demoMode && (
                     <div
@@ -125,8 +140,18 @@ export function JoinView() {
                     >
                         {activeChallengeId != null
                             ? `Joining challenge #${activeChallengeId}`
-                            : "Starts a fresh 1-hour challenge"}
+                            : "Pick your stake & duration next"}
                     </div>
+                )}
+                {activeChallengeId != null && (
+                    <button
+                        className="text-btn"
+                        style={{ width: "100%", marginTop: 8 }}
+                        onClick={() => requireProfile(onStartChallenge)}
+                        disabled={txPending}
+                    >
+                        Start your own challenge
+                    </button>
                 )}
             </div>
 
@@ -176,6 +201,21 @@ export function JoinView() {
                     </button>
                 </div>
             </div>
+
+            {showProfile && (
+                <ProfileModal
+                    onSaved={() => {
+                        setShowProfile(false);
+                        const action = pendingAction.current;
+                        pendingAction.current = null;
+                        action?.();
+                    }}
+                    onClose={() => {
+                        setShowProfile(false);
+                        pendingAction.current = null;
+                    }}
+                />
+            )}
         </>
     );
 }

@@ -11,6 +11,7 @@ import { useWalletContext } from "./WalletContext";
 import { walkPoolAbi } from "../lib/abi";
 import { isContractConfigured, WALKPOOL_ADDRESS } from "../lib/chain";
 import { MOCK_CHALLENGE } from "../lib/mock";
+import { loadProfile, MAX_NAME_LENGTH } from "../lib/profile";
 import type { Challenge, Participant } from "../lib/types";
 
 const ACTIVE_ID_KEY = "walkthewalk.activeChallengeId";
@@ -22,6 +23,11 @@ const GAS_CREATE = 3_000_000n;
 
 function shortAddr(addr: string): string {
     return `${addr.slice(0, 4)}…${addr.slice(-2)}`;
+}
+
+/** On-chain display name for writes — from the local profile; email never leaves the device. */
+function profileName(): string {
+    return loadProfile()?.name.trim().slice(0, MAX_NAME_LENGTH) ?? "";
 }
 
 /** Initial active id: URL param ?c=123 wins (invite link), else localStorage. */
@@ -125,16 +131,24 @@ export function ChallengeProvider({
                     }),
                 ]);
                 const [creator, stake, endTime, settled, pot] = info;
-                const [addrs, steps, payouts] = parts;
+                const [addrs, steps, payouts, names] = parts;
                 const you = addressRef.current?.toLowerCase();
                 const participants: Participant[] = addrs.map((addr, i) => {
                     const isYou =
                         you != null && addr.toLowerCase() === you;
+                    // On-chain name wins; fall back to short address.
+                    // Self shows the real name + "(you)" when set.
+                    const onChainName = (names?.[i] ?? "").trim();
+                    const name = isYou
+                        ? onChainName
+                            ? `${onChainName} (you)`
+                            : "You"
+                        : onChainName || shortAddr(addr);
                     return {
                         address: addr,
                         steps: Number(steps[i] ?? 0n),
                         payout: payouts[i] ?? 0n,
-                        name: isYou ? "You" : shortAddr(addr),
+                        name,
                         isYou,
                     };
                 });
@@ -213,7 +227,7 @@ export function ChallengeProvider({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
                     functionName: "createChallenge",
-                    args: [stakeWei, BigInt(durationSec)],
+                    args: [stakeWei, BigInt(durationSec), profileName()],
                     value: stakeWei,
                     // Monad charges on gas_limit, not gas_used — keep it modest.
                     gas: GAS_CREATE,
@@ -275,7 +289,7 @@ export function ChallengeProvider({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
                     functionName: "join",
-                    args: [BigInt(id)],
+                    args: [BigInt(id), profileName()],
                     value: stake,
                     gas: GAS_WRITE,
                 });

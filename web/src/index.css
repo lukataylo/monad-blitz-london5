@@ -431,6 +431,151 @@ button {
   overflow-y: auto;
 }
 
+/* ---- modals (profile + start-a-challenge) ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(17, 17, 17, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-sheet {
+  width: 100%;
+  max-width: 380px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid var(--card-border);
+  border-radius: 24px;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+.field-input {
+  width: 100%;
+  height: 52px;
+  border-radius: 16px;
+  border: 2px solid var(--ink);
+  background: #ffffff;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+  outline: none;
+}
+
+.field-error {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #b0342f;
+}
+
+.text-btn {
+  align-self: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-decoration: underline;
+  padding: 6px;
+}
+
+.text-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* duration picker pills */
+.seg-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.seg-btn {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.seg-btn--active {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.summary-line {
+  background: var(--cream);
+  border-radius: 16px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* big invite link on the "Challenge is live!" moment */
+.invite-big {
+  background: var(--cream);
+  border: 1px dashed rgba(17, 17, 17, 0.25);
+  border-radius: 16px;
+  padding: 14px;
+  font-size: 17px;
+  font-weight: 800;
+  word-break: break-all;
+  text-align: center;
+}
+
+/* ---- motion tracking ---- */
+.motion-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  background: var(--cream);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.motion-live .dot--live {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--lime);
+  border: 1px solid rgba(17, 17, 17, 0.2);
+}
+
+/* demo fallback controls — visually secondary */
+.demo-controls {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(17, 17, 17, 0.12);
+}
+
+.chip-btn--ghost {
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-color: rgba(17, 17, 17, 0.18);
+  color: var(--muted);
+  background: transparent;
+}
+
 .demo-badge {
   align-self: center;
   font-size: 11px;

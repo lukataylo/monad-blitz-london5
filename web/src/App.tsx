@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CreateChallengeModal } from "./components/CreateChallengeModal";
 import { useChallengeContext } from "./context/ChallengeContext";
 import { JoinView } from "./views/JoinView";
 import { LeaderboardView } from "./views/LeaderboardView";
@@ -10,6 +11,9 @@ export default function App() {
     const { activeChallengeId, challenge, error, demoMode } =
         useChallengeContext();
     const [override, setOverride] = useState<View | null>(null);
+    // Create-challenge modal lives at App level so its "Challenge is live!"
+    // stage survives the auto-switch from Join to Leaderboard.
+    const [showCreate, setShowCreate] = useState(false);
 
     const joined = challenge?.participants.some((p) => p.isYou) ?? false;
 
@@ -38,9 +42,15 @@ export default function App() {
             )}
             {error && <div className="error-banner">{error}</div>}
 
-            {view === "join" && <JoinView />}
+            {view === "join" && (
+                <JoinView onStartChallenge={() => setShowCreate(true)} />
+            )}
             {view === "board" && <LeaderboardView />}
             {view === "results" && <ResultsView />}
+
+            {showCreate && (
+                <CreateChallengeModal onClose={() => setShowCreate(false)} />
+            )}
 
             <div style={{ flex: 1 }} />
             <nav className="nav-links">

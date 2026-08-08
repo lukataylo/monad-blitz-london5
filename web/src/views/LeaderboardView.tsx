@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, formatMon } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
+import { useMotionSteps } from "../hooks/useMotionSteps";
 import type { Challenge } from "../lib/types";
 
 const AUTO_SYNC_MS = 15_000;
@@ -39,11 +40,23 @@ function StepControls({ challenge }: { challenge: Challenge }) {
     const { submitSteps, txPending, demoMode } = useChallengeContext();
     const you = challenge.participants.find((p) => p.isYou);
 
-    const [steps, setSteps] = useState<number>(you?.steps ?? 0);
+    // Real steps from the phone's accelerometer ADD onto the manual base:
+    // one single total that syncs on-chain.
+    const {
+        state: motionState,
+        steps: motionSteps,
+        requestPermission,
+    } = useMotionSteps();
+
+    const [baseSteps, setBaseSteps] = useState<number>(you?.steps ?? 0);
+    const total = baseSteps + motionSteps;
+
     const seeded = useRef(false);
     const lastSubmitted = useRef<number>(you?.steps ?? 0);
-    const stepsRef = useRef(steps);
-    stepsRef.current = steps;
+    const totalRef = useRef(total);
+    totalRef.current = total;
+    const motionRef = useRef(motionSteps);
+    motionRef.current = motionSteps;
     const pendingRef = useRef(txPending);
     pendingRef.current = txPending;
 
@@ -51,13 +64,13 @@ function StepControls({ challenge }: { challenge: Challenge }) {
     useEffect(() => {
         if (!seeded.current && you != null) {
             seeded.current = true;
-            setSteps(you.steps);
+            setBaseSteps(Math.max(0, you.steps - motionRef.current));
             lastSubmitted.current = you.steps;
         }
     }, [you]);
 
     const sync = async () => {
-        const value = stepsRef.current;
+        const value = totalRef.current;
         if (value === lastSubmitted.current || pendingRef.current) return;
         lastSubmitted.current = value;
         await submitSteps(value);
@@ -71,35 +84,50 @@ function StepControls({ challenge }: { challenge: Challenge }) {
         return () => clearInterval(t);
     }, []);
 
-    const dirty = steps !== lastSubmitted.current;
+    const dirty = total !== lastSubmitted.current;
 
     return (
         <div className="card">
             <div className="caption" style={{ marginBottom: 10 }}>
-                Your steps · web counter
+                Your steps
             </div>
             <input
                 className="steps-input"
                 inputMode="numeric"
-                value={String(steps)}
+                value={String(total)}
                 onChange={(e) => {
                     const n = Number(e.target.value.replace(/[^0-9]/g, ""));
-                    setSteps(Number.isNaN(n) ? 0 : n);
+                    // Editing sets the total; motion steps keep adding on top.
+                    setBaseSteps(
+                        Math.max(0, (Number.isNaN(n) ? 0 : n) - motionSteps)
+                    );
                 }}
             />
+
+            {/* motion tracking */}
+            {motionState === "prompt" && (
+                <button
+                    className="pill-btn"
+                    style={{ marginTop: 10 }}
+                    onClick={requestPermission}
+                >
+                    Enable motion tracking 👟
+                </button>
+            )}
+            {motionState === "granted" && (
+                <div className="motion-live">
+                    <span className="dot dot--live" />
+                    Walked with your phone: {motionSteps.toLocaleString()}{" "}
+                    steps
+                </div>
+            )}
+            {motionState === "denied" && (
+                <div className="caption" style={{ marginTop: 10 }}>
+                    Motion access denied — use the controls below
+                </div>
+            )}
+
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button
-                    className="chip-btn"
-                    onClick={() => setSteps((s) => s + 100)}
-                >
-                    +100
-                </button>
-                <button
-                    className="chip-btn"
-                    onClick={() => setSteps((s) => s + 1000)}
-                >
-                    +1000
-                </button>
                 <button
                     className="chip-btn"
                     style={{ marginLeft: "auto" }}
@@ -115,6 +143,27 @@ function StepControls({ challenge }: { challenge: Challenge }) {
                     : dirty
                       ? "Auto-syncs on-chain every 15s"
                       : "Synced on-chain"}
+            </div>
+
+            {/* demo fallback, visually secondary */}
+            <div className="demo-controls">
+                <div className="caption" style={{ marginBottom: 8 }}>
+                    Demo controls
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                        className="chip-btn chip-btn--ghost"
+                        onClick={() => setBaseSteps((s) => s + 100)}
+                    >
+                        +100
+                    </button>
+                    <button
+                        className="chip-btn chip-btn--ghost"
+                        onClick={() => setBaseSteps((s) => s + 1000)}
+                    >
+                        +1000
+                    </button>
+                </div>
             </div>
         </div>
     );

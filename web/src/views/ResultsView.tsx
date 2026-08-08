@@ -136,7 +136,7 @@ export function ResultsView() {
                         }}
                     >
                         <Avatar name={you.name} address={you.address} />
-                        <span className="podium-name">You</span>
+                        <span className="podium-name">{you.name}</span>
                         <span className="caption caption--ink">
                             #{sorted.indexOf(you) + 1} ·{" "}
                             {you.steps.toLocaleString()}

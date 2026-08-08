@@ -24,7 +24,9 @@ const ExerciseTracker = lazy(() =>
     import("../exercise").then((m) => ({ default: m.ExerciseTracker }))
 );
 
-const AUTO_SYNC_MS = 15_000;
+// Auto-submit cadence: reps blitzes race in real time, steps can amble.
+const AUTO_SYNC_STEPS_MS = 15_000;
+const AUTO_SYNC_REPS_MS = 6_000;
 const CHALLENGE_DAYS = 7;
 
 function useNow(): number {
@@ -100,6 +102,7 @@ function ScoreCard({
 
     const sync = async () => {
         const value = totalRef.current;
+        // Guard against overlapping submits: skip while a tx is pending.
         if (value === lastSubmitted.current || pendingRef.current) return;
         lastSubmitted.current = value;
         await submitSteps(value);
@@ -107,11 +110,14 @@ function ScoreCard({
     const syncRef = useRef(sync);
     syncRef.current = sync;
 
-    // Auto-submit every 15s when the counter changed.
+    // Auto-submit when the counter changed — every 6s for reps (kind 1) so
+    // the shared board moves in near-real-time, every 15s for steps.
+    const autoSyncMs =
+        challenge.kind === 1 ? AUTO_SYNC_REPS_MS : AUTO_SYNC_STEPS_MS;
     useEffect(() => {
-        const t = setInterval(() => syncRef.current(), AUTO_SYNC_MS);
+        const t = setInterval(() => syncRef.current(), autoSyncMs);
         return () => clearInterval(t);
-    }, []);
+    }, [autoSyncMs]);
 
     const dirty = total !== lastSubmitted.current;
 
@@ -158,7 +164,7 @@ function ScoreCard({
                 {demoMode
                     ? `Contract not deployed — ${unit} stay local`
                     : dirty
-                      ? "Auto-syncs on-chain every 15s"
+                      ? `Auto-syncs on-chain every ${autoSyncMs / 1000}s`
                       : "Synced on-chain"}
             </div>
 
@@ -309,6 +315,30 @@ export function LeaderboardView({
                 : [],
         [challenge]
     );
+
+    // "Live" pulse: rows whose score moved since the previous poll get a
+    // pulsing dot (keyed by timestamp so the 2s fade restarts on each change).
+    const prevScores = useRef<Map<string, number>>(new Map());
+    const [pulses, setPulses] = useState<Record<string, number>>({});
+    useEffect(() => {
+        if (!challenge) return;
+        const next = new Map<string, number>();
+        const changed: string[] = [];
+        for (const p of challenge.participants) {
+            const prev = prevScores.current.get(p.address);
+            next.set(p.address, p.steps);
+            if (prev != null && p.steps !== prev) changed.push(p.address);
+        }
+        prevScores.current = next;
+        if (changed.length > 0) {
+            const now = Date.now();
+            setPulses((cur) => {
+                const merged = { ...cur };
+                for (const a of changed) merged[a] = now;
+                return merged;
+            });
+        }
+    }, [challenge]);
 
     const copyInvite = () => {
         if (challenge == null) return;
@@ -470,6 +500,13 @@ export function LeaderboardView({
                                     />
                                 </div>
                             </div>
+                            {pulses[p.address] != null && (
+                                <span
+                                    key={pulses[p.address]}
+                                    className="row-live-dot"
+                                    aria-hidden
+                                />
+                            )}
                             <span className="row-steps">
                                 {p.steps.toLocaleString()}
                             </span>

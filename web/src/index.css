@@ -924,3 +924,77 @@ button {
 /* sticky, dismissible error banner */
 .error-banner { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; max-height: 160px; overflow-y: auto; word-break: break-all; }
 .error-dismiss { flex: none; background: none; border: none; font-size: 16px; cursor: pointer; color: inherit; padding: 2px 4px; }
+
+/* ---- onboarding modal (create account / log in / password reveal) ---- */
+.onb-tabs {
+  display: flex;
+  gap: 6px;
+  background: var(--cream);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.onb-tab {
+  flex: 1;
+  height: 38px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+}
+
+.onb-tab--active {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.field-input--mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 15px;
+}
+
+/* big one-time password reveal */
+.pw-box {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-align: center;
+  background: var(--lime);
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  padding: 20px 14px;
+  word-break: break-all;
+  user-select: all;
+}
+
+.copy-btn {
+  align-self: center;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: var(--lavender);
+  border-radius: 999px;
+  padding: 8px 18px;
+}
+
+.onb-warn {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+  background: var(--pink);
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.drip-status {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  text-align: center;
+}

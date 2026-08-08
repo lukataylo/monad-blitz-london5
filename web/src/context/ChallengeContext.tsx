@@ -15,7 +15,10 @@ import type { Challenge, Participant } from "../lib/types";
 
 const ACTIVE_ID_KEY = "walkthewalk.activeChallengeId";
 
-const POLL_INTERVAL_MS = 6000; // gentler on the public RPC
+const POLL_INTERVAL_MS = 6000; // gentler on the public RPC (steps challenges)
+// Kind-1 (reps) blitzes are a live 15-minute race — poll tighter so everyone's
+// reps move in near-real-time on the standings.
+const POLL_INTERVAL_REPS_MS = 4000;
 // Monad charges on gas_limit, not gas_used — keep these exact limits.
 const GAS_WRITE = 300_000n;
 const GAS_CREATE = 3_000_000n;
@@ -215,7 +218,7 @@ export function ChallengeProvider({
         await fetchChallenge(activeChallengeId);
     }, [demoMode, activeChallengeId, fetchChallenge]);
 
-    // ---- polling ----
+    // ---- initial load ----
     useEffect(() => {
         if (activeChallengeId == null) {
             setChallenge(null);
@@ -232,14 +235,24 @@ export function ChallengeProvider({
         fetchChallenge(activeChallengeId).finally(() => {
             if (!cancelled) setLoading(false);
         });
-        const interval = setInterval(() => {
-            fetchChallenge(activeChallengeId);
-        }, POLL_INTERVAL_MS);
         return () => {
             cancelled = true;
-            clearInterval(interval);
         };
     }, [activeChallengeId, demoMode, publicClient, fetchChallenge]);
+
+    // ---- polling (cadence follows the loaded challenge's kind) ----
+    // Reps (kind 1) blitzes poll every 4s while unsettled; steps keep 6s.
+    const pollMs =
+        challenge?.kind === 1 && !challenge.settled
+            ? POLL_INTERVAL_REPS_MS
+            : POLL_INTERVAL_MS;
+    useEffect(() => {
+        if (activeChallengeId == null || demoMode || !publicClient) return;
+        const interval = setInterval(() => {
+            fetchChallenge(activeChallengeId);
+        }, pollMs);
+        return () => clearInterval(interval);
+    }, [activeChallengeId, demoMode, publicClient, fetchChallenge, pollMs]);
 
     // ---- writes ----
     const afterWrite = useCallback(async () => {

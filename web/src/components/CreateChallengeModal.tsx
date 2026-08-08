@@ -8,11 +8,13 @@ import {
 import { getKindCopy } from "../lib/kindCopy";
 import { loadProfile } from "../lib/profile";
 
-// Start-a-challenge flow: a 5-step wizard (kind → name → pace → stakes →
-// review) ending in the "Challenge is live!" moment with the shareable
-// invite link. Kind comes first so the name suggestions (and all later
-// copy) match the sport. Rendered at App level so it survives the
-// auto-switch to the leaderboard after creation confirms.
+// Start-a-challenge flow: a step wizard ending in the "Challenge is live!"
+// moment with the shareable invite link. Kind comes first so the name
+// suggestions (and all later copy) match the sport. Steps kind gets the full
+// 5 steps (kind → name → pace → stakes → review); rep challenges happen live
+// in front of the camera, so they're Blitz-only — the pace step is dropped
+// and the flow is 4 steps (kind → name → stakes → review). Rendered at App
+// level so it survives the auto-switch to the leaderboard after creation.
 
 const MIN_STAKE_MON = 0.001;
 const MAX_TITLE_LENGTH = 64;
@@ -95,6 +97,29 @@ const PACES = [
 
 type PaceKey = (typeof PACES)[number]["key"];
 
+// Wizard step lists — reps challenges are Blitz-only, so no pace step.
+type StepName = "kind" | "name" | "pace" | "stakes" | "review";
+const STEPS_WITH_PACE: readonly StepName[] = [
+    "kind",
+    "name",
+    "pace",
+    "stakes",
+    "review",
+];
+const STEPS_BLITZ_ONLY: readonly StepName[] = [
+    "kind",
+    "name",
+    "stakes",
+    "review",
+];
+const STEP_LABELS: Record<StepName, string> = {
+    kind: "Kind",
+    name: "Name",
+    pace: "Pace",
+    stakes: "Stakes",
+    review: "Review",
+};
+
 const STAKE_PRESETS = ["0.1", "0.5", "1"] as const;
 
 function formatEndDate(secsFromNow: number): string {
@@ -133,8 +158,14 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
     const [confirmingDiscard, setConfirmingDiscard] = useState(false);
     const [submitFailed, setSubmitFailed] = useState(false);
 
-    const pace = PACES.find((p) => p.key === paceKey) ?? PACES[2];
     const kindDef = KINDS.find((k) => k.key === kindKey) ?? KINDS[0];
+    // Reps happen live in front of the camera — pace is locked to Blitz (900s).
+    const isReps = kindDef.kind === 1;
+    const pace = isReps
+        ? PACES[0]
+        : (PACES.find((p) => p.key === paceKey) ?? PACES[2]);
+    const stepList = isReps ? STEPS_BLITZ_ONLY : STEPS_WITH_PACE;
+    const stepName: StepName = stepList[Math.min(step, stepList.length) - 1];
     const copy = getKindCopy(
         kindDef.kind,
         (kindDef.exercise ?? "squat") as StoredExercise
@@ -271,21 +302,34 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                         <span className="caption">New challenge</span>
                     )}
                     <div
-                        className="wiz-dots"
-                        aria-label={`Step ${step} of 5`}
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "flex-end",
+                            gap: 4,
+                        }}
                     >
-                        {[1, 2, 3, 4, 5].map((n) => (
-                            <span
-                                key={n}
-                                className={`wiz-dot${
-                                    n === step
-                                        ? " wiz-dot--active"
-                                        : n < step
-                                          ? " wiz-dot--done"
-                                          : ""
-                                }`}
-                            />
-                        ))}
+                        <div
+                            className="wiz-dots"
+                            aria-label={`Step ${step} of ${stepList.length}: ${STEP_LABELS[stepName]}`}
+                        >
+                            {stepList.map((s, i) => (
+                                <span
+                                    key={s}
+                                    title={STEP_LABELS[s]}
+                                    className={`wiz-dot${
+                                        i + 1 === step
+                                            ? " wiz-dot--active"
+                                            : i + 1 < step
+                                              ? " wiz-dot--done"
+                                              : ""
+                                    }`}
+                                />
+                            ))}
+                        </div>
+                        <span className="caption" style={{ fontSize: 10 }}>
+                            {STEP_LABELS[stepName]} · {step}/{stepList.length}
+                        </span>
                     </div>
                 </div>
 
@@ -309,9 +353,9 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                     </div>
                 )}
 
-                {/* STEP 1 — kind (first, so everything after speaks the
+                {/* STEP — kind (first, so everything after speaks the
                     right sport) */}
-                {step === 1 && (
+                {stepName === "kind" && (
                     <div className="wiz-step" key="s1">
                         <div className="modal-title">
                             What kind of challenge?
@@ -353,8 +397,8 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                     </div>
                 )}
 
-                {/* STEP 2 — name (suggestions match the chosen kind) */}
-                {step === 2 && (
+                {/* STEP — name (suggestions match the chosen kind) */}
+                {stepName === "name" && (
                     <div className="wiz-step" key="s2">
                         <div className="modal-title">Name your challenge</div>
                         <input
@@ -369,7 +413,8 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                             autoFocus
                             onChange={(e) => setTitle(e.target.value)}
                             onKeyDown={(e) => {
-                                if (e.key === "Enter" && titleOk) setStep(3);
+                                if (e.key === "Enter" && titleOk)
+                                    setStep(step + 1);
                             }}
                         />
                         <div className="chips-row">
@@ -385,7 +430,7 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                         </div>
                         <button
                             className="pill-btn"
-                            onClick={() => setStep(3)}
+                            onClick={() => setStep(step + 1)}
                             disabled={!titleOk}
                         >
                             Next →
@@ -393,63 +438,52 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                     </div>
                 )}
 
-                {/* STEP 3 — pace */}
-                {step === 3 && (
+                {/* STEP — pace (steps challenges only; reps are Blitz-only) */}
+                {stepName === "pace" && (
                     <div className="wiz-step" key="s3">
                         <div className="modal-title">Pick the pace</div>
                         <div className="pace-grid">
-                            {PACES.map((p) => {
-                                // Rep challenges happen on the spot in front
-                                // of the camera — nudge towards Blitz.
-                                const recommended =
-                                    kindDef.kind === 1 && p.key === "blitz";
-                                return (
-                                    <button
-                                        key={p.key}
-                                        className={`pace-card${
-                                            p.key === paceKey
-                                                ? " pace-card--active"
-                                                : ""
-                                        }`}
-                                        onClick={() => setPaceKey(p.key)}
-                                    >
-                                        <span className="pace-emoji">
-                                            {p.emoji}
+                            {PACES.map((p) => (
+                                <button
+                                    key={p.key}
+                                    className={`pace-card${
+                                        p.key === paceKey
+                                            ? " pace-card--active"
+                                            : ""
+                                    }`}
+                                    onClick={() => setPaceKey(p.key)}
+                                >
+                                    <span className="pace-emoji">
+                                        {p.emoji}
+                                    </span>
+                                    <span className="pace-name">
+                                        {p.name}
+                                    </span>
+                                    <span className="pace-dur">
+                                        {p.durationLabel}
+                                    </span>
+                                    {p.note && (
+                                        <span className="pace-note">
+                                            {p.note}
                                         </span>
-                                        <span className="pace-name">
-                                            {p.name}
-                                            {recommended && (
-                                                <span className="rec-badge">
-                                                    Recommended
-                                                </span>
-                                            )}
-                                        </span>
-                                        <span className="pace-dur">
-                                            {p.durationLabel}
-                                        </span>
-                                        {p.note && (
-                                            <span className="pace-note">
-                                                {p.note}
-                                            </span>
-                                        )}
-                                        <span className="pace-ends">
-                                            Ends {formatEndDate(p.secs)}
-                                        </span>
-                                    </button>
-                                );
-                            })}
+                                    )}
+                                    <span className="pace-ends">
+                                        Ends {formatEndDate(p.secs)}
+                                    </span>
+                                </button>
+                            ))}
                         </div>
                         <button
                             className="pill-btn"
-                            onClick={() => setStep(4)}
+                            onClick={() => setStep(step + 1)}
                         >
                             Next →
                         </button>
                     </div>
                 )}
 
-                {/* STEP 4 — stakes */}
-                {step === 4 && (
+                {/* STEP — stakes */}
+                {stepName === "stakes" && (
                     <div className="wiz-step" key="s4">
                         <div className="modal-title">Set the stakes</div>
                         <div className="chips-row">
@@ -501,7 +535,7 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                         </div>
                         <button
                             className="pill-btn"
-                            onClick={() => setStep(5)}
+                            onClick={() => setStep(step + 1)}
                             disabled={!stakeOk}
                         >
                             Next →
@@ -509,8 +543,8 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                     </div>
                 )}
 
-                {/* STEP 5 — review & launch */}
-                {step === 5 && (
+                {/* STEP — review & launch */}
+                {stepName === "review" && (
                     <div className="wiz-step" key="s5">
                         <div className="modal-title">Review & launch</div>
                         <div className="review-card">
@@ -529,8 +563,9 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                             <div className="review-row">
                                 <span className="review-label">Pace</span>
                                 <span className="review-value">
-                                    {pace.emoji} {pace.name} ·{" "}
-                                    {pace.durationLabel}
+                                    {isReps
+                                        ? "⚡ Blitz · 15 minutes"
+                                        : `${pace.emoji} ${pace.name} · ${pace.durationLabel}`}
                                 </span>
                             </div>
                             <div className="review-row">

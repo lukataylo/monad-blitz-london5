@@ -23,8 +23,10 @@ type ConnectedWalletClient = WalletClient<Transport, Chain, Account>;
 
 // Instant in-browser wallet: a private key is generated on first visit and
 // kept in localStorage. No login, no external auth dependency —
-// "open the page, you already have a wallet".
-const WALLET_KEY = "walkthewalk.pk";
+// "open the page, you already have a wallet". Onboarding (create account /
+// log in) may REPLACE this key with one derived from email+password, then
+// call reloadWallet() to pick it up without a page refresh.
+export const WALLET_KEY = "walkthewalk.pk";
 
 const BALANCE_POLL_MS = 10_000;
 
@@ -35,6 +37,12 @@ interface WalletContextType {
     /** MON native balance in wei */
     balance: bigint;
     refreshBalance: () => Promise<void>;
+    /**
+     * Re-read the private key from localStorage and rebuild the account +
+     * clients. Cheap (no page reload): onboarding calls this right after
+     * swapping "walkthewalk.pk" for a derived key.
+     */
+    reloadWallet: () => void;
     isReady: boolean;
 }
 
@@ -49,7 +57,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     );
     const [balance, setBalance] = useState<bigint>(0n);
 
-    useEffect(() => {
+    const reloadWallet = useCallback(() => {
         try {
             let pk = localStorage.getItem(WALLET_KEY) as `0x${string}` | null;
             if (!pk) {
@@ -77,10 +85,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             setAddress(account.address);
             setPublicClient(pub);
             setWalletClient(wal);
+            setBalance(0n); // stale balance belongs to the old address
         } catch (e) {
             console.warn("WalletContext init failed", e);
         }
     }, []);
+
+    useEffect(() => {
+        reloadWallet();
+    }, [reloadWallet]);
 
     const refreshBalance = useCallback(async () => {
         if (!publicClient || !address) return;
@@ -106,6 +119,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
                 walletClient,
                 balance,
                 refreshBalance,
+                reloadWallet,
                 isReady: !!(address && walletClient && publicClient),
             }}
         >

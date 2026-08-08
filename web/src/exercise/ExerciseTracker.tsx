@@ -26,7 +26,8 @@ export function ExerciseTracker({
   hero = false,
   offCaption,
 }: ExerciseTrackerProps) {
-  const { state, reps, start, stop, videoRef, feedback } = usePoseRepCounter(exercise);
+  const { state, reps, start, stop, videoRef, canvasRef, feedback, debug } =
+    usePoseRepCounter(exercise);
 
   useEffect(() => {
     onRepsChange?.(reps);
@@ -46,6 +47,13 @@ export function ExerciseTracker({
           playsInline
           muted
           data-live={live || undefined}
+        />
+        {/* pose skeleton overlay — mirrored + cover-cropped exactly like the video */}
+        <canvas
+          ref={canvasRef}
+          className="ex-canvas"
+          data-live={live || undefined}
+          aria-hidden
         />
 
         {!live && (
@@ -90,6 +98,15 @@ export function ExerciseTracker({
         {live && (
           <>
             <span className="ex-caption ex-badge">{LABELS[exercise]}</span>
+            {/* live form debug: measurement + FSM cue, so a missed rep explains itself */}
+            <div className="ex-hud">
+              {debug && <span className="ex-caption ex-hud-chip">{debug}</span>}
+              {feedback && (
+                <span className="ex-caption ex-hud-chip ex-hud-chip--cue">
+                  {feedback}
+                </span>
+              )}
+            </div>
             <div className="ex-counter">
               <span className="ex-reps">{reps}</span>
               <span className="ex-caption ex-reps-label">reps</span>

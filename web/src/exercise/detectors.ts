@@ -19,6 +19,8 @@ export interface DetectionUpdate {
   inFrame: boolean;
   /** Coaching cue for the current phase, or null when nothing specific to say. */
   cue: string | null;
+  /** Live measurement caption, e.g. "Knee 132°" or "Arms up · feet wide". */
+  debug: string | null;
 }
 
 /**
@@ -45,12 +47,13 @@ const R_KNEE = 26;
 const L_ANKLE = 27;
 const R_ANKLE = 28;
 
-const MIN_VISIBILITY = 0.5;
-const REP_DEBOUNCE_MS = 400;
+const MIN_VISIBILITY = 0.3;
+const REP_DEBOUNCE_MS = 350;
 
-/* Squat thresholds (knee angle: hip-knee-ankle, degrees) */
-const SQUAT_STANDING_DEG = 160;
-const SQUAT_BOTTOM_DEG = 100;
+/* Squat thresholds (knee angle: hip-knee-ankle, degrees).
+   Loosened for reliability: stand > 150°, bottom < 110°. */
+const SQUAT_STANDING_DEG = 150;
+const SQUAT_BOTTOM_DEG = 110;
 
 /* Jumping-jack thresholds (ankle separation relative to shoulder width) */
 const JACK_OPEN_RATIO = 1.3;
@@ -94,12 +97,13 @@ class SquatDetector implements RepDetector {
 
   update(frame: PoseFrame): DetectionUpdate {
     if (!allVisible(frame.landmarks, SQUAT_REQUIRED)) {
-      return { repCompleted: false, inFrame: false, cue: null };
+      return { repCompleted: false, inFrame: false, cue: null, debug: null };
     }
     const w = frame.worldLandmarks;
     const left = angleDeg(w[L_HIP], w[L_KNEE], w[L_ANKLE]);
     const right = angleDeg(w[R_HIP], w[R_KNEE], w[R_ANKLE]);
     const knee = (left + right) / 2;
+    const debug = `Knee ${Math.round(knee)}°`;
 
     let repCompleted = false;
     let cue: string | null = null;
@@ -107,6 +111,7 @@ class SquatDetector implements RepDetector {
     if (this.phase === "up") {
       if (knee < SQUAT_BOTTOM_DEG) {
         this.phase = "down";
+        cue = "Stand tall to count the rep";
       } else if (knee < SQUAT_STANDING_DEG) {
         cue = "Go lower!";
       }
@@ -117,8 +122,11 @@ class SquatDetector implements RepDetector {
         this.lastRepAt = frame.timeMs;
         repCompleted = true;
       }
+    } else {
+      // still in the hole — tell them what finishes the rep
+      cue = "Stand tall to count the rep";
     }
-    return { repCompleted, inFrame: true, cue };
+    return { repCompleted, inFrame: true, cue, debug };
   }
 
   reset(): void {
@@ -144,7 +152,7 @@ class JumpingJackDetector implements RepDetector {
 
   update(frame: PoseFrame): DetectionUpdate {
     if (!allVisible(frame.landmarks, JACK_REQUIRED)) {
-      return { repCompleted: false, inFrame: false, cue: null };
+      return { repCompleted: false, inFrame: false, cue: null, debug: null };
     }
     const lm = frame.landmarks;
     const shoulderWidth =
@@ -158,12 +166,17 @@ class JumpingJackDetector implements RepDetector {
     const feetWide = ankleSep > shoulderWidth * JACK_OPEN_RATIO;
     const feetTogether = ankleSep < shoulderWidth * JACK_CLOSED_RATIO;
 
+    const debug = `Arms ${wristsAboveHead ? "up" : "down"} · feet ${
+      feetWide ? "wide" : feetTogether ? "together" : "mid"
+    }`;
+
     let repCompleted = false;
     let cue: string | null = null;
 
     if (this.phase === "closed") {
       if (wristsAboveHead && feetWide) {
         this.phase = "open";
+        cue = "Back together to count the rep";
       } else if (feetWide && !wristsAboveHead) {
         cue = "Hands all the way up!";
       }
@@ -174,8 +187,10 @@ class JumpingJackDetector implements RepDetector {
         this.lastRepAt = frame.timeMs;
         repCompleted = true;
       }
+    } else {
+      cue = "Back together to count the rep";
     }
-    return { repCompleted, inFrame: true, cue };
+    return { repCompleted, inFrame: true, cue, debug };
   }
 
   reset(): void {

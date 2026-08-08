@@ -21,6 +21,7 @@ contract WalkPool {
         uint256 stake;
         uint64 endTime;
         bool settled;
+        string title; // challenge display name, max 64 bytes, may be empty
         address[] participants;
         mapping(address => Participant) info;
     }
@@ -32,7 +33,8 @@ contract WalkPool {
         uint256 indexed id,
         address indexed creator,
         uint256 stake,
-        uint64 endTime
+        uint64 endTime,
+        string title
     );
     event Joined(uint256 indexed id, address indexed who, string name);
     event StepsSubmitted(uint256 indexed id, address indexed who, uint256 steps);
@@ -41,15 +43,20 @@ contract WalkPool {
 
     /// @notice Create a challenge; the creator stakes and auto-joins.
     /// @dev The creator's display name is emitted via the same `Joined` event
-    ///      as every other participant (ChallengeCreated stays name-free), so
-    ///      clients index names from a single event.
-    function createChallenge(uint256 stake, uint64 duration, string calldata name)
-        external
-        payable
-        returns (uint256 id)
-    {
+    ///      as every other participant, so clients index names from a single
+    ///      event; the challenge title travels with `ChallengeCreated`.
+    /// @param title Challenge display name (max 64 bytes; empty allowed,
+    ///        client renders a fallback).
+    /// @param name Creator's display name (max 32 bytes; empty allowed).
+    function createChallenge(
+        uint256 stake,
+        uint64 duration,
+        string calldata title,
+        string calldata name
+    ) external payable returns (uint256 id) {
         require(msg.value == stake, "stake mismatch");
         require(duration > 0, "duration zero");
+        require(bytes(title).length <= 64, "title too long");
         require(bytes(name).length <= 32, "name too long");
 
         id = nextId++;
@@ -57,12 +64,13 @@ contract WalkPool {
         c.creator = msg.sender;
         c.stake = stake;
         c.endTime = uint64(block.timestamp) + duration;
+        c.title = title;
 
         c.participants.push(msg.sender);
         c.info[msg.sender].joined = true;
         c.info[msg.sender].name = name;
 
-        emit ChallengeCreated(id, msg.sender, stake, c.endTime);
+        emit ChallengeCreated(id, msg.sender, stake, c.endTime, title);
         emit Joined(id, msg.sender, name);
     }
 
@@ -176,7 +184,8 @@ contract WalkPool {
             uint64 endTime,
             bool settled,
             uint256 pot,
-            uint256 participantCount
+            uint256 participantCount,
+            string memory title
         )
     {
         Challenge storage c = challenges[id];
@@ -186,6 +195,7 @@ contract WalkPool {
         settled = c.settled;
         participantCount = c.participants.length;
         pot = c.stake * participantCount;
+        title = c.title;
     }
 
     /// @notice Parallel arrays of participants, their steps, payouts, and display names.

@@ -25,7 +25,7 @@ contract WalkPoolTest is Test {
 
     function _create(uint256 stake) internal returns (uint256 id) {
         vm.prank(alice);
-        id = pool.createChallenge{value: stake}(stake, DURATION, "Alice");
+        id = pool.createChallenge{value: stake}(stake, DURATION, "Morning Walk", "Alice");
     }
 
     // 1. create + join happy path
@@ -40,7 +40,8 @@ contract WalkPoolTest is Test {
             uint64 endTime,
             bool settled,
             uint256 pot,
-            uint256 count
+            uint256 count,
+            string memory title
         ) = pool.getChallenge(id);
 
         assertEq(creator, alice);
@@ -49,6 +50,7 @@ contract WalkPoolTest is Test {
         assertFalse(settled);
         assertEq(pot, 2 * STAKE);
         assertEq(count, 2);
+        assertEq(title, "Morning Walk");
         assertEq(address(pool).balance, 2 * STAKE);
 
         (address[] memory addrs, , , string[] memory names) = pool.getParticipants(id);
@@ -62,7 +64,7 @@ contract WalkPoolTest is Test {
     function test_RevertWrongStake() public {
         vm.prank(alice);
         vm.expectRevert(bytes("stake mismatch"));
-        pool.createChallenge{value: STAKE - 1}(STAKE, DURATION, "Alice");
+        pool.createChallenge{value: STAKE - 1}(STAKE, DURATION, "Morning Walk", "Alice");
 
         uint256 id = _create(STAKE);
         vm.prank(bob);
@@ -239,7 +241,7 @@ contract WalkPoolTest is Test {
         vm.prank(alice);
         vm.expectEmit(true, true, false, true);
         emit WalkPool.Joined(0, alice, "Alice");
-        uint256 id = pool.createChallenge{value: STAKE}(STAKE, DURATION, "Alice");
+        uint256 id = pool.createChallenge{value: STAKE}(STAKE, DURATION, "Morning Walk", "Alice");
 
         vm.prank(bob);
         vm.expectEmit(true, true, false, true);
@@ -264,7 +266,7 @@ contract WalkPoolTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(bytes("name too long"));
-        pool.createChallenge{value: STAKE}(STAKE, DURATION, longName);
+        pool.createChallenge{value: STAKE}(STAKE, DURATION, "Morning Walk", longName);
 
         uint256 id = _create(STAKE);
         vm.prank(bob);
@@ -278,5 +280,43 @@ contract WalkPoolTest is Test {
         pool.join{value: STAKE}(id, maxName);
         (, , , string[] memory names) = pool.getParticipants(id);
         assertEq(names[1], maxName);
+    }
+
+    // 15. title stored, returned by getChallenge, and emitted in ChallengeCreated
+    function test_TitleStoredReturnedEmitted() public {
+        vm.prank(alice);
+        vm.expectEmit(true, true, false, true);
+        emit WalkPool.ChallengeCreated(
+            0, alice, STAKE, uint64(block.timestamp) + DURATION, "10k Steps Showdown"
+        );
+        uint256 id = pool.createChallenge{value: STAKE}(
+            STAKE, DURATION, "10k Steps Showdown", "Alice"
+        );
+
+        (, , , , , , string memory title) = pool.getChallenge(id);
+        assertEq(title, "10k Steps Showdown");
+    }
+
+    // 16. 65-byte title reverts; exactly 64 bytes is fine; empty is fine
+    function test_TitleLengthBounds() public {
+        string memory title65 =
+            "01234567890123456789012345678901234567890123456789012345678901234";
+        assertEq(bytes(title65).length, 65);
+        vm.prank(alice);
+        vm.expectRevert(bytes("title too long"));
+        pool.createChallenge{value: STAKE}(STAKE, DURATION, title65, "Alice");
+
+        string memory title64 =
+            "0123456789012345678901234567890123456789012345678901234567890123";
+        assertEq(bytes(title64).length, 64);
+        vm.prank(alice);
+        uint256 id64 = pool.createChallenge{value: STAKE}(STAKE, DURATION, title64, "Alice");
+        (, , , , , , string memory stored64) = pool.getChallenge(id64);
+        assertEq(stored64, title64);
+
+        vm.prank(bob);
+        uint256 idEmpty = pool.createChallenge{value: STAKE}(STAKE, DURATION, "", "Bob");
+        (, , , , , , string memory storedEmpty) = pool.getChallenge(idEmpty);
+        assertEq(storedEmpty, "");
     }
 }

@@ -55,13 +55,13 @@ forge verify-contract <DEPLOYED_ADDRESS> src/WalkPool.sol:WalkPool \
 
 ## Contract surface
 
-- `createChallenge(uint256 stake, uint64 duration, string name) payable returns (uint256 id)` — creator stakes and auto-joins with a display name
+- `createChallenge(uint256 stake, uint64 duration, string title, string name) payable returns (uint256 id)` — creator stakes and auto-joins; `title` is the challenge display name (max 64 bytes, empty allowed — client renders a fallback), `name` is the creator's display name
 - `join(uint256 id, string name) payable` — match the stake before `endTime`, with a display name
 - Display names: max 32 bytes, empty allowed (client renders a fallback)
 - `submitSteps(uint256 id, uint256 steps)` — monotonically non-decreasing, until `endTime`
 - `settle(uint256 id)` — anyone, strictly after `endTime`; 70/30 split, dust to winner
 - `claim(uint256 id)` — pull-pattern payout withdrawal
-- Views: `getChallenge(id)`, `getParticipants(id)` → `(address[] addrs, uint256[] steps, uint256[] payouts, string[] names)`
-- Events: `ChallengeCreated` (unchanged, name-free), `Joined(id, who, name)` (emitted for the creator inside `createChallenge` too, so all names — creator included — arrive via this one event), `StepsSubmitted`, `Settled`, `Claimed`
+- Views: `getChallenge(id)` → `(address creator, uint256 stake, uint64 endTime, bool settled, uint256 pot, uint256 participantCount, string title)`, `getParticipants(id)` → `(address[] addrs, uint256[] steps, uint256[] payouts, string[] names)`
+- Events: `ChallengeCreated(uint256 indexed id, address indexed creator, uint256 stake, uint64 endTime, string title)`, `Joined(id, who, name)` (emitted for the creator inside `createChallenge` too, so all names — creator included — arrive via this one event), `StepsSubmitted`, `Settled`, `Claimed`
 
 ABI: `contracts/abi.json`

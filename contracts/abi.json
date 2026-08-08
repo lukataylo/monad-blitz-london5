@@ -27,6 +27,11 @@
         "internalType": "uint64"
       },
       {
+        "name": "title",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
         "name": "name",
         "type": "string",
         "internalType": "string"
@@ -81,6 +86,11 @@
         "name": "participantCount",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "title",
+        "type": "string",
+        "internalType": "string"
       }
     ],
     "stateMutability": "view"
@@ -208,6 +218,12 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      },
+      {
+        "name": "title",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
       }
     ],
     "anonymous": false

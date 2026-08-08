@@ -480,6 +480,78 @@ function RepControls({
     );
 }
 
+// ---- podium ----
+// Top three on pillars, tallest in the middle. Rendered in visual order
+// (2nd, 1st, 3rd) rather than rank order so the winner sits centre.
+const PODIUM_ORDER = [1, 0, 2] as const;
+const PODIUM_MEDAL = ["🥇", "🥈", "🥉"] as const;
+
+function Podium({
+    top,
+    isReps,
+    unit,
+}: {
+    top: Participant[];
+    isReps: boolean;
+    unit: "steps" | "reps";
+}) {
+    return (
+        <div className={`podium ${isReps ? "podium--pink" : "podium--lime"}`}>
+            <div className="podium-stage">
+                {PODIUM_ORDER.map((rank) => {
+                    const p = top[rank];
+                    // 2 players: no third pillar. Keep the slot empty so the
+                    // winner stays centred instead of drifting left.
+                    if (!p) {
+                        return (
+                            <div
+                                key={`empty-${rank}`}
+                                className="podium-slot podium-slot--empty"
+                                aria-hidden
+                            />
+                        );
+                    }
+                    return (
+                        <div
+                            key={p.address}
+                            className={`podium-slot podium-slot--${rank + 1}`}
+                        >
+                            <div className="podium-figure">
+                                <Avatar
+                                    name={p.name}
+                                    address={p.address}
+                                    style={{
+                                        width: rank === 0 ? 56 : 44,
+                                        height: rank === 0 ? 56 : 44,
+                                        fontSize: rank === 0 ? 20 : 16,
+                                    }}
+                                />
+                                {/* medal on the winner only — for 2nd and 3rd
+                                    the pillar height and position already say
+                                    it, and a badge each just adds clutter */}
+                                {rank === 0 && (
+                                    <span className="podium-medal" aria-hidden>
+                                        {PODIUM_MEDAL[0]}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="podium-pillar">
+                                <span className="podium-name">
+                                    {firstNameOf(p.name)}
+                                </span>
+                                <span className="podium-score">
+                                    {p.steps.toLocaleString()}
+                                </span>
+                                <span className="podium-unit">{unit}</span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 export function LeaderboardView({
     onBackToJoin,
 }: {
@@ -680,25 +752,32 @@ export function LeaderboardView({
                 </div>
             )}
 
-            {/* countdown header */}
-            <div style={{ textAlign: "center", paddingTop: 4 }}>
-                {/* durations range from a 15-min blitz to a 30-day marathon,
-                    and total duration isn't on-chain — a hardcoded "Day N of 7"
-                    was wrong for most of them. Time left is always true. */}
-                <div className="caption">
-                    {timeLeft <= 0 ? "Challenge over" : "Time left"}
-                </div>
-                <div
-                    style={{
-                        fontSize: 26,
-                        fontWeight: 800,
-                        fontVariantNumeric: "tabular-nums",
-                        marginTop: 2,
-                    }}
+            {/* header: challenge identity + the two facts that change —
+                what it is, and how long is left. Durations range from a
+                15-min blitz to a 30-day marathon and total duration isn't
+                on-chain, so time left is the only honest progress figure. */}
+            <div className="board-head">
+                <span className="board-chip board-chip--title">
+                    <span aria-hidden>{isReps ? "🏋️" : "🚶"}</span>
+                    {challenge.title.trim() || `Challenge #${challenge.id}`}
+                </span>
+                <span
+                    className={`board-chip${
+                        timeLeft <= 0 ? " board-chip--over" : ""
+                    }`}
                 >
                     {formatTimeLeft(timeLeft)}
-                </div>
+                </span>
             </div>
+
+            {/* podium — only meaningful once there's someone to beat */}
+            {sorted.length >= 2 && (
+                <Podium
+                    top={sorted.slice(0, 3)}
+                    isReps={isReps}
+                    unit={copy.unit}
+                />
+            )}
 
             <h1 className="title-heavy">
                 {copy.boardTitle.pre}
@@ -711,10 +790,6 @@ export function LeaderboardView({
                 </span>
                 {copy.boardTitle.post}
             </h1>
-
-            <div className="pot-pill">
-                Shared pot · {formatMon(challenge.pot)} MON
-            </div>
 
             {/* kind 1: camera rep tracker above the standings — the exercise
                 is fixed per challenge (creator's pick / title inference) */}
@@ -746,41 +821,25 @@ export function LeaderboardView({
                 </>
             )}
 
-            {/* ranked rows */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {sorted.map((p, i) => {
-                    const bg =
-                        i === 0
-                            ? "var(--lime)"
-                            : p.isYou
-                              ? "var(--lavender)"
-                              : undefined;
-                    return (
-                        <div
-                            key={p.address}
-                            className="row-card"
-                            style={bg ? { background: bg } : undefined}
-                        >
-                            <span
-                                className="rank"
-                                style={
-                                    bg ? { color: "var(--ink)" } : undefined
-                                }
-                            >
-                                {i + 1}
-                            </span>
-                            <Avatar name={p.name} address={p.address} />
-                            <div className="row-main">
-                                <div className="row-name">{p.name}</div>
-                                <div className="progress-track">
-                                    <div
-                                        className="progress-fill"
-                                        style={{
-                                            width: `${Math.round((p.steps / maxSteps) * 100)}%`,
-                                        }}
-                                    />
-                                </div>
-                            </div>
+            {/* standings — rank, name and score on one line with the bar
+                spanning underneath, so bar lengths compare across rows */}
+            <div className="board-list">
+                <div className="caption board-list-head">Standings</div>
+                {sorted.map((p, i) => (
+                    <div
+                        key={p.address}
+                        className={`board-row${
+                            p.isYou ? " board-row--you" : ""
+                        }`}
+                    >
+                        <div className="board-row-top">
+                            <span className="board-rank">{i + 1}</span>
+                            <Avatar
+                                name={p.name}
+                                address={p.address}
+                                style={{ width: 28, height: 28, fontSize: 12 }}
+                            />
+                            <span className="board-name">{p.name}</span>
                             {pulses[p.address] != null && (
                                 <span
                                     key={pulses[p.address]}
@@ -788,12 +847,37 @@ export function LeaderboardView({
                                     aria-hidden
                                 />
                             )}
-                            <span className="row-steps">
+                            <span className="board-score">
                                 {p.steps.toLocaleString()}
+                                <span className="board-score-unit">
+                                    {copy.unit}
+                                </span>
                             </span>
                         </div>
-                    );
-                })}
+                        <div className="board-track">
+                            <div
+                                className={`board-fill board-fill--${
+                                    i === 0 ? "gold" : i === 1 ? "two" : "rest"
+                                }`}
+                                style={{
+                                    width: `${Math.round((p.steps / maxSteps) * 100)}%`,
+                                }}
+                            />
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* payout footer — what the board is actually playing for */}
+            <div className="board-prize">
+                <span className="board-prize-medal" aria-hidden>
+                    🏆
+                </span>
+                <span>
+                    Winner takes <strong>70%</strong> of{" "}
+                    {formatMon(challenge.pot)} MON · runner-up{" "}
+                    <strong>30%</strong>
+                </span>
             </div>
 
             {/* only walker so far — nudge to share the invite link */}

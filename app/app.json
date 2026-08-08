@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "Walk The Walk",
+    "slug": "walk-the-walk",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "backgroundColor": "#F7F2E5"
+    },
+    "scheme": "walkthewalk",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.walkthewalk.app",
+      "icon": "./assets/images/icon.png",
+      "splash": {
+        "image": "./assets/images/icon.png",
+        "backgroundColor": "#F7F2E5"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "resizeMode": "contain",
+        "imageSize": 50,
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.walkthewalk.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "17.5"
+          },
+          "android": {
+            "compileSdkVersion": 35
+          }
+        }
+      ],
+      "expo-secure-store",
+      "expo-web-browser",
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Walk The Walk counts your steps to run your group challenge."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -79,7 +79,9 @@ export function JoinView({
 
             {/* hero */}
             <div className="card card--lime">
-                <div className="caption caption--ink">10K Club</div>
+                <div className="caption caption--ink">
+                    {(hasActive && challenge.title.trim()) || "10K Club"}
+                </div>
                 <div
                     style={{
                         fontSize: 52,

@@ -1,5 +1,5 @@
 // Shared shapes for challenge state. Mirrors WalkPool.sol views:
-// getChallenge(id) -> (creator, stake, endTime, settled, pot, participantCount)
+// getChallenge(id) -> (creator, stake, endTime, settled, pot, participantCount, title)
 // getParticipants(id) -> (address[], steps[], payout[], names[])
 export type Participant = {
     address: `0x${string}`;
@@ -14,6 +14,8 @@ export type Participant = {
 export type Challenge = {
     id: number;
     creator: `0x${string}`;
+    /** on-chain challenge title (e.g. "10K Club") */
+    title: string;
     /** stake per person, wei */
     stake: bigint;
     /** unix seconds */

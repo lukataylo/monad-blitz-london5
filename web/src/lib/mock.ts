@@ -6,6 +6,7 @@ import type { Challenge } from "./types";
 export const MOCK_CHALLENGE: Challenge = {
     id: 1,
     creator: "0xA11ce00000000000000000000000000000000001",
+    title: "10K Club",
     stake: parseEther("0.5"),
     endTime: Math.floor(Date.now() / 1000) + 3 * 24 * 3600 + 8 * 3600,
     settled: false,

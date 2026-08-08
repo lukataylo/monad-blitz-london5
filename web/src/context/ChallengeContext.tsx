@@ -61,7 +61,8 @@ interface ChallengeContextType {
     /** returns the new challenge id, or null on failure */
     createChallenge: (
         stakeWei: bigint,
-        durationSec: number
+        durationSec: number,
+        title: string
     ) => Promise<number | null>;
     join: (id: number) => Promise<void>;
     submitSteps: (steps: number) => Promise<void>;
@@ -130,7 +131,7 @@ export function ChallengeProvider({
                         args: [BigInt(id)],
                     }),
                 ]);
-                const [creator, stake, endTime, settled, pot] = info;
+                const [creator, stake, endTime, settled, pot, , title] = info;
                 const [addrs, steps, payouts, names] = parts;
                 const you = addressRef.current?.toLowerCase();
                 const participants: Participant[] = addrs.map((addr, i) => {
@@ -155,6 +156,7 @@ export function ChallengeProvider({
                 setChallenge({
                     id,
                     creator,
+                    title,
                     stake,
                     endTime: Number(endTime),
                     settled,
@@ -212,7 +214,8 @@ export function ChallengeProvider({
     const createChallenge = useCallback(
         async (
             stakeWei: bigint,
-            durationSec: number
+            durationSec: number,
+            title: string
         ): Promise<number | null> => {
             if (demoMode) {
                 console.warn("[demo] createChallenge — contract not configured");
@@ -227,7 +230,7 @@ export function ChallengeProvider({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
                     functionName: "createChallenge",
-                    args: [stakeWei, BigInt(durationSec), profileName()],
+                    args: [stakeWei, BigInt(durationSec), title, profileName()],
                     value: stakeWei,
                     // Monad charges on gas_limit, not gas_used — keep it modest.
                     gas: GAS_CREATE,

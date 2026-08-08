@@ -527,6 +527,234 @@ button {
   text-align: center;
 }
 
+/* ---- create-challenge wizard ---- */
+.wiz-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+}
+
+.wiz-back {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-decoration: underline;
+  padding: 2px 4px 2px 0;
+}
+
+.wiz-back:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.wiz-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wiz-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.15);
+  transition:
+    width 0.2s ease,
+    background 0.2s ease;
+}
+
+.wiz-dot--done {
+  background: rgba(17, 17, 17, 0.45);
+}
+
+.wiz-dot--active {
+  width: 20px;
+  background: var(--ink);
+}
+
+.wiz-step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: wiz-in 0.22s ease both;
+}
+
+@keyframes wiz-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.suggest-chip {
+  background: var(--cream);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background 0.15s ease;
+}
+
+.suggest-chip:hover {
+  background: var(--lime);
+}
+
+.pace-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.pace-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  background: #ffffff;
+  border: 2px solid var(--card-border);
+  border-radius: 16px;
+  padding: 12px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.pace-card--active {
+  border-color: var(--ink);
+  background: var(--lime);
+}
+
+.pace-emoji {
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.pace-name {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.pace-dur {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.pace-note {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pace-ends {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pace-card--active .pace-dur,
+.pace-card--active .pace-note,
+.pace-card--active .pace-ends {
+  color: rgba(17, 17, 17, 0.65);
+}
+
+.payout-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--cream);
+  border-radius: 16px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.payout-row span:last-child {
+  flex: 1;
+  text-align: right;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.review-card {
+  background: var(--cream);
+  border-radius: 16px;
+  padding: 4px 14px;
+}
+
+.review-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(17, 17, 17, 0.1);
+}
+
+.review-row:last-child {
+  border-bottom: none;
+}
+
+.review-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.review-value {
+  font-size: 14px;
+  font-weight: 800;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.wiz-error {
+  margin-top: 0;
+  max-height: 90px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  animation: spin 0.7s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.discard-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--pink);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  animation: wiz-in 0.18s ease both;
+}
+
 /* big invite link on the "Challenge is live!" moment */
 .invite-big {
   background: var(--cream);

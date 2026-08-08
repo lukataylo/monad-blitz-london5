@@ -1,5 +1,6 @@
 import ErrorScreen from "@/components/ui/ErrorScreen";
 import FullScreenLoader from "@/components/ui/FullScreenLoader";
+import { ChallengeProvider } from "@/context/ChallengeContext";
 import { WalletProvider } from "@/context/WalletContext";
 import { AuthBoundary } from "@privy-io/expo";
 import { PrivyElements } from "@privy-io/expo/ui";
@@ -17,9 +18,11 @@ export default function AppLayout() {
                 unauthenticated={<Redirect href="/sign-in" />}
             >
                 <WalletProvider>
-                    <View style={{ flex: 1 }}>
-                        <Slot />
-                    </View>
+                    <ChallengeProvider>
+                        <View style={{ flex: 1 }}>
+                            <Slot />
+                        </View>
+                    </ChallengeProvider>
                 </WalletProvider>
                 <PrivyElements />
             </AuthBoundary>

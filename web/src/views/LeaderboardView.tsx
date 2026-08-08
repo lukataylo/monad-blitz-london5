@@ -15,6 +15,7 @@ import {
     saveExerciseChoice,
     type StoredExercise,
 } from "../lib/exerciseChoice";
+import { getKindCopy } from "../lib/kindCopy";
 import type { Challenge } from "../lib/types";
 
 // Camera rep tracker only mounts for kind-1 challenges — keep it out of the
@@ -63,16 +64,20 @@ function ScoreCard({
     extra,
     unit,
     motionUi,
+    collapseManual = false,
 }: {
     challenge: Challenge;
     extra: number;
     unit: "steps" | "reps";
     motionUi?: React.ReactNode;
+    /** kind 1: camera is the input — tuck manual entry behind a disclosure */
+    collapseManual?: boolean;
 }) {
     const { submitSteps, txPending, demoMode } = useChallengeContext();
     const you = challenge.participants.find((p) => p.isYou);
 
     const [base, setBase] = useState<number>(you?.steps ?? 0);
+    const [manualOpen, setManualOpen] = useState(!collapseManual);
     const total = base + extra;
 
     const seeded = useRef(false);
@@ -115,18 +120,27 @@ function ScoreCard({
             <div className="caption" style={{ marginBottom: 10 }}>
                 Your {unit}
             </div>
-            <input
-                className="steps-input"
-                inputMode="numeric"
-                value={String(total)}
-                onChange={(e) => {
-                    const n = Number(e.target.value.replace(/[^0-9]/g, ""));
-                    // Editing sets the total; the live counter keeps adding on top.
-                    setBase(
-                        Math.max(0, (Number.isNaN(n) ? 0 : n) - extra)
-                    );
-                }}
-            />
+            {manualOpen ? (
+                <input
+                    className="steps-input"
+                    inputMode="numeric"
+                    value={String(total)}
+                    onChange={(e) => {
+                        const n = Number(
+                            e.target.value.replace(/[^0-9]/g, "")
+                        );
+                        // Editing sets the total; the live counter keeps adding on top.
+                        setBase(
+                            Math.max(0, (Number.isNaN(n) ? 0 : n) - extra)
+                        );
+                    }}
+                />
+            ) : (
+                <div className="score-big">
+                    {total.toLocaleString()}
+                    <span className="score-big-unit">{unit}</span>
+                </div>
+            )}
 
             {motionUi}
 
@@ -148,26 +162,46 @@ function ScoreCard({
                       : "Synced on-chain"}
             </div>
 
-            {/* demo fallback, visually secondary */}
-            <div className="demo-controls">
-                <div className="caption" style={{ marginBottom: 8 }}>
-                    Demo controls
+            {/* demo fallback, visually secondary — kind 1 keeps it (and the
+                editable total) tucked behind a "manual entry" disclosure */}
+            {manualOpen ? (
+                <div className="demo-controls">
+                    <div className="caption" style={{ marginBottom: 8 }}>
+                        {collapseManual ? "Manual entry" : "Demo controls"}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                            className="chip-btn chip-btn--ghost"
+                            onClick={() => setBase((s) => s + 100)}
+                        >
+                            +100
+                        </button>
+                        <button
+                            className="chip-btn chip-btn--ghost"
+                            onClick={() => setBase((s) => s + 1000)}
+                        >
+                            +1000
+                        </button>
+                        {collapseManual && (
+                            <button
+                                className="text-btn"
+                                style={{ marginLeft: "auto" }}
+                                onClick={() => setManualOpen(false)}
+                            >
+                                Hide
+                            </button>
+                        )}
+                    </div>
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                        className="chip-btn chip-btn--ghost"
-                        onClick={() => setBase((s) => s + 100)}
-                    >
-                        +100
-                    </button>
-                    <button
-                        className="chip-btn chip-btn--ghost"
-                        onClick={() => setBase((s) => s + 1000)}
-                    >
-                        +1000
-                    </button>
-                </div>
-            </div>
+            ) : (
+                <button
+                    className="text-btn"
+                    style={{ width: "100%", marginTop: 10 }}
+                    onClick={() => setManualOpen(true)}
+                >
+                    Manual entry
+                </button>
+            )}
         </div>
     );
 }
@@ -223,7 +257,12 @@ function RepControls({
     trackerReps: number;
 }) {
     return (
-        <ScoreCard challenge={challenge} extra={trackerReps} unit="reps" />
+        <ScoreCard
+            challenge={challenge}
+            extra={trackerReps}
+            unit="reps"
+            collapseManual
+        />
     );
 }
 
@@ -292,7 +331,7 @@ export function LeaderboardView({
                     <div className="caption" style={{ marginBottom: 14 }}>
                         {loading
                             ? "Loading challenge from chain…"
-                            : "Join or start a challenge to get walking"}
+                            : "Join or start a challenge to get moving"}
                     </div>
                     {!loading && onBackToJoin && (
                         <button className="pill-btn" onClick={onBackToJoin}>
@@ -313,6 +352,8 @@ export function LeaderboardView({
     const maxSteps = Math.max(1, ...sorted.map((p) => p.steps));
     const ended = timeLeft <= 0;
     const isReps = challenge.kind === 1;
+    // Copy tracks the live toggle so the headline flips with the exercise.
+    const copy = getKindCopy(challenge.kind, exercise);
 
     return (
         <>
@@ -334,7 +375,15 @@ export function LeaderboardView({
             </div>
 
             <h1 className="title-heavy">
-                Who's <span className="highlight-lime">walking</span> the walk?
+                {copy.boardTitle.pre}
+                <span
+                    className={
+                        isReps ? "highlight-pink" : "highlight-lime"
+                    }
+                >
+                    {copy.boardTitle.highlight}
+                </span>
+                {copy.boardTitle.post}
             </h1>
 
             <div className="pot-pill">
@@ -379,6 +428,8 @@ export function LeaderboardView({
                         <ExerciseTracker
                             exercise={exercise}
                             onRepsChange={onRepsChange}
+                            hero
+                            offCaption={copy.cameraCaption}
                         />
                     </Suspense>
                 </>

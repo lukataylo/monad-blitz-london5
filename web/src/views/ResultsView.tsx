@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Avatar, formatMon } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
+import { copyForChallenge } from "../lib/kindCopy";
 
 const CONFETTI_COLORS = ["#D9E856", "#C8BDF4", "#F6C8D8", "#E8B84B", "#111111"];
 const CONFETTI_COUNT = 22;
@@ -77,6 +78,13 @@ export function ResultsView({
     const you = sorted.find((p) => p.isYou) ?? null;
     const youWon = winner.isYou;
 
+    // "You squatted. You won." for rep challenges, walking copy otherwise.
+    const copy = copyForChallenge(challenge.kind, challenge.id);
+    const isReps = challenge.kind === 1;
+    const ellipseClass = isReps
+        ? "won-ellipse won-ellipse--pink"
+        : "won-ellipse";
+
     // Payouts come from chain after settle; fall back to the 70/30 split for display.
     const winnerAmt =
         winner.payout > 0n ? winner.payout : (challenge.pot * 70n) / 100n;
@@ -97,15 +105,15 @@ export function ResultsView({
             <h1 className="title-heavy" style={{ paddingTop: 12 }}>
                 {youWon ? (
                     <>
-                        You walked.
+                        You {copy.verbPast}.
                         <br />
-                        You <span className="won-ellipse">won.</span>
+                        You <span className={ellipseClass}>won.</span>
                     </>
                 ) : (
                     <>
-                        You walked.
+                        You {copy.verbPast}.
                         <br />
-                        They <span className="won-ellipse">won.</span>
+                        They <span className={ellipseClass}>won.</span>
                     </>
                 )}
             </h1>
@@ -155,7 +163,7 @@ export function ResultsView({
                         <span className="podium-name">{you.name}</span>
                         <span className="caption caption--ink">
                             #{sorted.indexOf(you) + 1} ·{" "}
-                            {you.steps.toLocaleString()}
+                            {you.steps.toLocaleString()} {copy.unit}
                         </span>
                         <span className="podium-amt">
                             {formatMon(yourPayout)} MON

@@ -5,22 +5,17 @@ import {
     saveExerciseChoice,
     type StoredExercise,
 } from "../lib/exerciseChoice";
+import { getKindCopy } from "../lib/kindCopy";
 import { loadProfile } from "../lib/profile";
 
-// Start-a-challenge flow: a 5-step wizard (name → kind → pace → stakes →
+// Start-a-challenge flow: a 5-step wizard (kind → name → pace → stakes →
 // review) ending in the "Challenge is live!" moment with the shareable
-// invite link. Rendered at App level so it survives the auto-switch to the
-// leaderboard after creation confirms.
+// invite link. Kind comes first so the name suggestions (and all later
+// copy) match the sport. Rendered at App level so it survives the
+// auto-switch to the leaderboard after creation confirms.
 
 const MIN_STAKE_MON = 0.001;
 const MAX_TITLE_LENGTH = 64;
-
-const TITLE_SUGGESTIONS = [
-    "10K Club",
-    "Step Wars",
-    "Walk It Off",
-    "Monday Miles",
-] as const;
 
 // What gets counted. On-chain the contract stores only kind (0 steps /
 // 1 reps); the specific exercise for kind 1 is the creator's local choice,
@@ -54,6 +49,14 @@ const KINDS = [
 ] as const;
 
 type KindKey = (typeof KINDS)[number]["key"];
+
+// Name suggestions swap with the selected kind so a squat challenge never
+// gets pitched "Step Wars".
+const TITLE_SUGGESTIONS: Record<KindKey, readonly string[]> = {
+    steps: ["10K Club", "Step Wars", "Monday Miles"],
+    squat: ["Squad Goals", "Drop It Low", "Squat Squad"],
+    jumping_jack: ["Jack Attack", "Star Jumpers"],
+};
 
 const PACES = [
     {
@@ -132,7 +135,11 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
 
     const pace = PACES.find((p) => p.key === paceKey) ?? PACES[2];
     const kindDef = KINDS.find((k) => k.key === kindKey) ?? KINDS[0];
-    const unit = kindDef.kind === 1 ? "reps" : "steps";
+    const copy = getKindCopy(
+        kindDef.kind,
+        (kindDef.exercise ?? "squat") as StoredExercise
+    );
+    const unit = copy.unit;
 
     const titleOk = title.trim() !== "";
     const stakeNum = Number(stakeStr);
@@ -191,17 +198,17 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
         navigator
             .share({
                 title: `Walk The Walk — ${title.trim() || `${unit} challenge`}`,
-                text: `Stake ${stakeStr} MON, most ${unit} wins. You in?`,
+                text: copy.shareText(stakeStr),
                 url: inviteLink,
             })
             .catch(() => {});
     };
 
-    // Backdrop / cancel: past step 1 (or with a typed title) ask before
+    // Backdrop / cancel: once there's real input (a typed title) ask before
     // throwing the setup away — inline, no browser confirm().
     const requestClose = () => {
         if (txPending) return;
-        if (liveId != null || (step === 1 && !titleOk)) {
+        if (liveId != null || step === 1 || (step === 2 && !titleOk)) {
             onClose();
             return;
         }
@@ -239,7 +246,7 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                         )}
                     </div>
                     <button className="pill-btn" onClick={onClose}>
-                        Let's walk →
+                        {copy.letsGo}
                     </button>
                 </div>
             </div>
@@ -302,45 +309,10 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                     </div>
                 )}
 
-                {/* STEP 1 — name */}
+                {/* STEP 1 — kind (first, so everything after speaks the
+                    right sport) */}
                 {step === 1 && (
                     <div className="wiz-step" key="s1">
-                        <div className="modal-title">Name your challenge</div>
-                        <input
-                            className="field-input"
-                            placeholder="Office Step War"
-                            maxLength={MAX_TITLE_LENGTH}
-                            value={title}
-                            autoFocus
-                            onChange={(e) => setTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter" && titleOk) setStep(2);
-                            }}
-                        />
-                        <div className="chips-row">
-                            {TITLE_SUGGESTIONS.map((s) => (
-                                <button
-                                    key={s}
-                                    className="suggest-chip"
-                                    onClick={() => setTitle(s)}
-                                >
-                                    {s}
-                                </button>
-                            ))}
-                        </div>
-                        <button
-                            className="pill-btn"
-                            onClick={() => setStep(2)}
-                            disabled={!titleOk}
-                        >
-                            Next →
-                        </button>
-                    </div>
-                )}
-
-                {/* STEP 2 — kind */}
-                {step === 2 && (
-                    <div className="wiz-step" key="s2">
                         <div className="modal-title">
                             What kind of challenge?
                         </div>
@@ -374,7 +346,47 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                         </div>
                         <button
                             className="pill-btn"
+                            onClick={() => setStep(2)}
+                        >
+                            Next →
+                        </button>
+                    </div>
+                )}
+
+                {/* STEP 2 — name (suggestions match the chosen kind) */}
+                {step === 2 && (
+                    <div className="wiz-step" key="s2">
+                        <div className="modal-title">Name your challenge</div>
+                        <input
+                            className="field-input"
+                            placeholder={
+                                kindDef.kind === 1
+                                    ? "Office Rep Battle"
+                                    : "Office Step War"
+                            }
+                            maxLength={MAX_TITLE_LENGTH}
+                            value={title}
+                            autoFocus
+                            onChange={(e) => setTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && titleOk) setStep(3);
+                            }}
+                        />
+                        <div className="chips-row">
+                            {TITLE_SUGGESTIONS[kindKey].map((s) => (
+                                <button
+                                    key={s}
+                                    className="suggest-chip"
+                                    onClick={() => setTitle(s)}
+                                >
+                                    {s}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            className="pill-btn"
                             onClick={() => setStep(3)}
+                            disabled={!titleOk}
                         >
                             Next →
                         </button>
@@ -477,7 +489,7 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                             )}
                         </div>
                         <div className="summary-line">
-                            Each walker stakes{" "}
+                            Each player stakes{" "}
                             <strong>
                                 {stakeOk ? formatMonNumber(stakeNum) : "?"} MON
                             </strong>
@@ -485,7 +497,7 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                         <div className="payout-row">
                             <span>🥇 70%</span>
                             <span>🥈 30%</span>
-                            <span>🐢 bottom walker's stake stays in the pot</span>
+                            <span>🐢 bottom player's stake stays in the pot</span>
                         </div>
                         <button
                             className="pill-btn"
@@ -534,7 +546,9 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                                 </span>
                             </div>
                             <div className="review-row">
-                                <span className="review-label">Walker</span>
+                                <span className="review-label">
+                                    {copy.athleteNoun}
+                                </span>
                                 <span className="review-value">
                                     {profileNameLabel}
                                 </span>

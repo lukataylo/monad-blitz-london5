@@ -73,6 +73,12 @@ button {
   padding: 0 6px;
 }
 
+.highlight-pink {
+  background: var(--pink);
+  border-radius: 8px;
+  padding: 0 6px;
+}
+
 /* ---- cards ---- */
 .card {
   background: #ffffff;
@@ -91,6 +97,22 @@ button {
 
 .card--pink {
   background: var(--pink);
+}
+
+/* hero with a floating sport-emoji sticker (kind-1 join/invite) */
+.card--sticker {
+  position: relative;
+}
+
+.hero-sticker {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  font-size: 36px;
+  line-height: 1;
+  transform: rotate(8deg);
+  pointer-events: none;
+  user-select: none;
 }
 
 /* ---- buttons ---- */
@@ -333,6 +355,10 @@ button {
   border-radius: 50%;
   transform: rotate(-4deg);
   pointer-events: none;
+}
+
+.won-ellipse--pink::after {
+  border-color: var(--pink);
 }
 
 .confetti-wrap {
@@ -818,6 +844,26 @@ button {
   border-radius: 4px;
   background: var(--lime);
   border: 1px solid rgba(17, 17, 17, 0.2);
+}
+
+/* compact score readout when manual entry is collapsed (kind 1) */
+.score-big {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-big-unit {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
 }
 
 /* demo fallback controls — visually secondary */

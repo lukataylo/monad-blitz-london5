@@ -3,6 +3,7 @@ import { ProfileModal } from "../components/ProfileModal";
 import { Avatar, formatMon, WalletPill } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
 import { useWalletContext } from "../context/WalletContext";
+import { copyForChallenge } from "../lib/kindCopy";
 import { loadProfile } from "../lib/profile";
 
 const FAUCET_URL = "https://testnet.monad.xyz";
@@ -146,6 +147,8 @@ function InviteHero({
     const ended = secsLeft <= 0;
     const count = challenge.participants.length;
     const needsFunds = balance < challenge.stake;
+    const isReps = challenge.kind === 1;
+    const copy = copyForChallenge(challenge.kind, challenge.id);
     const walkerNames = challenge.participants
         .slice(0, 3)
         .map((p) => p.name)
@@ -153,8 +156,16 @@ function InviteHero({
 
     return (
         <>
-            {/* invite hero */}
-            <div className="card card--lime">
+            {/* invite hero — rep challenges swap lime for the pink scheme so
+                a squat invite reads as a different sport at a glance */}
+            <div
+                className={`card card--sticker ${
+                    isReps ? "card--pink" : "card--lime"
+                }`}
+            >
+                <span className="hero-sticker" aria-hidden>
+                    {copy.emoji}
+                </span>
                 <div className="caption caption--ink">You're invited! 🎉</div>
                 <div
                     style={{
@@ -168,12 +179,15 @@ function InviteHero({
                     {challenge.title.trim() || `Challenge #${challenge.id}`}
                 </div>
                 <div className="chips-row" style={{ marginBottom: 14 }}>
+                    {isReps && (
+                        <span className="chip">{copy.sportChip}</span>
+                    )}
                     <span className="chip">Stake to join: {stakeLabel}</span>
                     <span className="chip">{formatEndsIn(secsLeft)}</span>
                     <span className="chip">
                         {count === 0
                             ? "Be the first to join"
-                            : `${count} walking so far`}
+                            : copy.inviteCount(count)}
                     </span>
                 </div>
                 {count > 0 && (
@@ -341,6 +355,13 @@ export function JoinView({
         !demoMode &&
         !challengeNotFound;
 
+    // Kind-aware wording/coloring for a loaded challenge (walking default).
+    const heroCopy = copyForChallenge(
+        hasActive ? challenge.kind : 0,
+        activeChallengeId
+    );
+    const heroIsReps = hasActive && challenge.kind === 1;
+
     const inviteLink = useMemo(
         () =>
             hasActive
@@ -385,8 +406,18 @@ export function JoinView({
             ) : (
                 <>
                     {/* hero — real pot when a challenge is loaded, the app
-                        promise otherwise. Never invented numbers. */}
-                    <div className="card card--lime">
+                        promise otherwise. Never invented numbers. Rep
+                        challenges get the pink scheme + sport sticker. */}
+                    <div
+                        className={`card card--sticker ${
+                            heroIsReps ? "card--pink" : "card--lime"
+                        }`}
+                    >
+                        {hasActive && (
+                            <span className="hero-sticker" aria-hidden>
+                                {heroCopy.emoji}
+                            </span>
+                        )}
                         <div className="caption caption--ink">
                             {hasActive
                                 ? challenge.title.trim() ||
@@ -406,9 +437,9 @@ export function JoinView({
                                 `${formatMon(challenge.pot)} MON`
                             ) : (
                                 <>
-                                    Walk more.
+                                    {heroCopy.tagline[0]}
                                     <br />
-                                    Win together.
+                                    {heroCopy.tagline[1]}
                                 </>
                             )}
                         </div>
@@ -419,9 +450,7 @@ export function JoinView({
                                 opacity: 0.75,
                             }}
                         >
-                            {hasActive
-                                ? "In the pot — walk more, win together."
-                                : "Stake MON. Most steps wins."}
+                            {hasActive ? heroCopy.potSub : heroCopy.heroSub}
                         </div>
                     </div>
 
@@ -429,11 +458,17 @@ export function JoinView({
                     <div className="chips-row">
                         {hasActive ? (
                             <>
+                                {heroIsReps && (
+                                    <span className="chip">
+                                        {heroCopy.sportChip}
+                                    </span>
+                                )}
                                 <span className="chip">
                                     {formatMon(challenge.stake, 3)} MON stake
                                 </span>
                                 <span className="chip">
-                                    {challenge.participants.length} walking
+                                    {challenge.participants.length}{" "}
+                                    {heroCopy.verb}
                                 </span>
                                 <span className="chip">Winner takes 70%</span>
                             </>
@@ -441,7 +476,9 @@ export function JoinView({
                             <>
                                 <span className="chip">Winner takes 70%</span>
                                 <span className="chip">Runner-up gets 30%</span>
-                                <span className="chip">Most steps wins</span>
+                                <span className="chip">
+                                    Most {heroCopy.unit} wins
+                                </span>
                             </>
                         )}
                     </div>

@@ -293,7 +293,7 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
         if (!inviteLink || !canShare) return;
         navigator
             .share({
-                title: `Walk The Walk — ${title.trim() || `${unit} challenge`}`,
+                title: `Forfit — ${title.trim() || `${unit} challenge`}`,
                 text: copy.shareText(stakeStr),
                 url: inviteLink,
             })

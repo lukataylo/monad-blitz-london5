@@ -1,4 +1,4 @@
-// Walk The Walk service worker.
+// Forfit service worker.
 // - /assets/* (hashed Vite bundles) + /models/* (MediaPipe task + wasm):
 //   cache-first — immutable or huge, either way fetch once.
 // - navigations: network-first with cache fallback so the app shell still

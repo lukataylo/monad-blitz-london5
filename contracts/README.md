@@ -1,4 +1,4 @@
-# WalkPool — Monad Testnet Contracts
+# Forfit contracts — WalkPool on Monad testnet
 
 Step-challenge staking pools: stake MON, walk, submit steps before the deadline.
 After the deadline anyone can settle — the top stepper takes 70% of the pot, the

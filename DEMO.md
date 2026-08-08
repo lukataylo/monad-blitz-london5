@@ -1,4 +1,4 @@
-# Walk The Walk — 2-Minute Demo Script
+# Forfit — 2-Minute Demo Script
 
 **Live:** https://walk-the-walk-production.up.railway.app · **Contract:** [`0x2E0f…1F2F`](https://testnet.monadexplorer.com/address/0x2E0f08bEFFa35D34D60490e7f3f9a92c06Ce1F2F) on Monad Testnet
 
@@ -7,6 +7,7 @@
 - Phone 1 logged in as `stage1@walkthewalk.xyz` / `lime-heron` (funded)
 - Phone 2 logged in as `stage2@walkthewalk.xyz` / `pearl-otter` (funded)
 - Both phones opened once so the camera model is cached; camera permission granted
+- (The `@walkthewalk.xyz` logins are correct — the email is an input to the wallet derivation, so it kept the pre-rename domain. The app itself says Forfit.)
 - Phone 1: create **Squats → 3-min Showdown → 0.1 MON**, stop on the QR screen
 
 ## The 2 minutes

@@ -218,7 +218,7 @@ app.post("/drip", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Walk The Walk faucet listening on port ${PORT}`);
+  console.log(`Forfit faucet listening on port ${PORT}`);
   console.log(`Faucet address: ${account.address}`);
   console.log(`RPC: ${RPC_URL}, drip amount: ${DRIP_MON} MON`);
 });

@@ -26,6 +26,11 @@ type ConnectedWalletClient = WalletClient<Transport, Chain, Account>;
 // "open the page, you already have a wallet". Onboarding (create account /
 // log in) may REPLACE this key with one derived from email+password, then
 // call reloadWallet() to pick it up without a page refresh.
+//
+// The "walkthewalk." storage prefix predates the rename to Forfit and is kept
+// deliberately: this key holds a real private key, so renaming it would strand
+// the funds of anyone who already has a wallet in localStorage. Same for the
+// other "walkthewalk.*" keys across the app.
 export const WALLET_KEY = "walkthewalk.pk";
 
 // 15s (was 10s): trimmed alongside other poll cadences after production hit

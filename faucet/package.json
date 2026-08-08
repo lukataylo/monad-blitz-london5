@@ -1,7 +1,7 @@
 {
-  "name": "walk-the-walk-faucet",
+  "name": "forfit-faucet",
   "version": "1.0.0",
-  "description": "Tiny faucet microservice that auto-funds new Walk The Walk wallets on Monad testnet",
+  "description": "Tiny faucet microservice that auto-funds new Forfit wallets on Monad testnet",
   "type": "module",
   "main": "server.js",
   "scripts": {

@@ -70,7 +70,7 @@ export default function App() {
         return (
             <div className="shell">
                 <div className="card card--lime" style={{ marginTop: 24 }}>
-                    <div className="caption caption--ink">Walk The Walk</div>
+                    <div className="caption caption--ink">Forfit</div>
                     <div
                         style={{
                             fontSize: 40,

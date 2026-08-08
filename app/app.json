@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Walk The Walk",
-    "slug": "walk-the-walk",
+    "name": "Forfit",
+    "slug": "forfit",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,11 +9,11 @@
       "image": "./assets/images/icon.png",
       "backgroundColor": "#F7F2E5"
     },
-    "scheme": "walkthewalk",
+    "scheme": "forfit",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "bundleIdentifier": "com.walkthewalk.app",
+      "bundleIdentifier": "com.forfit.app",
       "icon": "./assets/images/icon.png",
       "splash": {
         "image": "./assets/images/icon.png",
@@ -28,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.walkthewalk.app"
+      "package": "com.forfit.app"
     },
     "web": {
       "bundler": "metro",
@@ -53,7 +53,7 @@
       [
         "expo-sensors",
         {
-          "motionPermission": "Walk The Walk counts your steps to run your group challenge."
+          "motionPermission": "Forfit counts your steps to run your group challenge."
         }
       ]
     ],

@@ -454,6 +454,266 @@ button {
   margin-left: 0;
 }
 
+/* ---- leaderboard: header chips ---- */
+.board-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.board-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-chip--title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+}
+
+.board-chip--over {
+  background: var(--pink);
+  border-color: transparent;
+}
+
+/* ---- leaderboard: podium ---- */
+.podium {
+  border-radius: 24px;
+  padding: 22px 14px 0;
+  overflow: hidden;
+}
+
+.podium--lime {
+  background: var(--lime);
+}
+
+.podium--pink {
+  background: var(--pink);
+}
+
+.podium-stage {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: end;
+  gap: 8px;
+}
+
+.podium-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.podium-figure {
+  position: relative;
+  margin-bottom: 10px;
+  line-height: 0;
+}
+
+/* Avatar colours are hashed from the address, so a player can land on the
+   same colour as the podium behind them and disappear. The hairline outside
+   the white ring guarantees an edge whatever the hash returns. */
+.podium-figure .avatar {
+  border: 3px solid #ffffff;
+  margin-left: 0;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.14);
+}
+
+/* winner's medal, tucked on the avatar's bottom edge and centred so it
+   never crowds the initial */
+.podium-medal {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  transform: translateX(-50%);
+  font-size: 19px;
+  line-height: 1;
+}
+
+/* pillar heights encode the ranking — 1st tallest, centre */
+.podium-pillar {
+  width: 100%;
+  border-radius: 16px 16px 0 0;
+  background: rgba(255, 255, 255, 0.72);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  padding: 10px 6px 0;
+  min-width: 0;
+}
+
+.podium-slot--1 .podium-pillar {
+  height: 108px;
+  background: #ffffff;
+}
+
+.podium-slot--2 .podium-pillar {
+  height: 80px;
+}
+
+.podium-slot--3 .podium-pillar {
+  height: 62px;
+}
+
+.podium-slot--empty {
+  min-height: 1px;
+}
+
+.podium-name {
+  font-size: 12px;
+  font-weight: 800;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podium-score {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.podium-unit {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+}
+
+/* ---- leaderboard: standings list ---- */
+.board-list {
+  background: #ffffff;
+  border: 1px solid var(--card-border);
+  border-radius: 24px;
+  padding: 16px 16px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.board-list-head {
+  margin-bottom: -4px;
+}
+
+.board-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.board-row-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.board-rank {
+  width: 18px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.board-name {
+  font-size: 15px;
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-row--you .board-name,
+.board-row--you .board-rank {
+  color: var(--ink);
+}
+
+.board-row--you .board-name {
+  font-weight: 800;
+}
+
+.board-score {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex: none;
+}
+
+.board-score-unit {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-left: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.board-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.08);
+  overflow: hidden;
+}
+
+.board-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.board-fill--gold {
+  background: var(--ochre);
+}
+
+.board-fill--two {
+  background: var(--lavender);
+}
+
+.board-fill--rest {
+  background: rgba(17, 17, 17, 0.55);
+}
+
+/* ---- leaderboard: payout footer ---- */
+.board-prize {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--lavender);
+  border-radius: 18px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.board-prize-medal {
+  font-size: 18px;
+  line-height: 1;
+  flex: none;
+}
+
 /* ---- leaderboard rows ---- */
 .row-card {
   display: flex;

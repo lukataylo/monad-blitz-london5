@@ -265,6 +265,31 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* score moved since the last poll — subtle live pulse, fades out over 2s */
+.row-card .row-live-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  animation: row-live-pulse 2s ease-out forwards;
+}
+
+@keyframes row-live-pulse {
+  0% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(217, 232, 86, 0.9);
+  }
+  60% {
+    opacity: 1;
+    box-shadow: 0 0 0 7px rgba(217, 232, 86, 0);
+  }
+  100% {
+    opacity: 0;
+    box-shadow: 0 0 0 7px rgba(217, 232, 86, 0);
+  }
+}
+
 .progress-track {
   margin-top: 8px;
   height: 6px;

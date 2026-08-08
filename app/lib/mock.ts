@@ -5,6 +5,7 @@ import { Challenge } from "./types";
 // UI screens build against this; ChallengeContext swaps in live chain data.
 export const MOCK_CHALLENGE: Challenge = {
     id: 1,
+    title: "10K Club",
     creator: "0xA11ce00000000000000000000000000000000001",
     stake: parseEther("0.5"),
     endTime: Math.floor(Date.now() / 1000) + 3 * 24 * 3600 + 8 * 3600,

@@ -48,7 +48,8 @@ interface ChallengeContextType {
     /** returns the new challenge id, or null on failure */
     createChallenge: (
         stakeWei: bigint,
-        durationSec: number
+        durationSec: number,
+        title: string
     ) => Promise<number | null>;
     join: (id: number) => Promise<void>;
     submitSteps: (steps: number) => Promise<void>;
@@ -168,7 +169,7 @@ export function ChallengeProvider({
                         args: [BigInt(id)],
                     }),
                 ]);
-                const [creator, stake, endTime, settled, pot] = info;
+                const [creator, stake, endTime, settled, pot, , title] = info;
                 const [addrs, steps, payouts, chainNames] = parts;
                 const you = addressRef.current?.toLowerCase();
                 const localNames = namesRef.current;
@@ -189,6 +190,7 @@ export function ChallengeProvider({
                 });
                 setChallenge({
                     id,
+                    title,
                     creator,
                     stake,
                     endTime: Number(endTime),
@@ -243,7 +245,11 @@ export function ChallengeProvider({
     }, [refresh, refreshBalance]);
 
     const createChallenge = useCallback(
-        async (stakeWei: bigint, durationSec: number): Promise<number | null> => {
+        async (
+            stakeWei: bigint,
+            durationSec: number,
+            title: string
+        ): Promise<number | null> => {
             if (demoMode) {
                 console.warn("[demo] createChallenge — contract not configured");
                 setActiveChallengeId(MOCK_CHALLENGE.id);
@@ -260,6 +266,7 @@ export function ChallengeProvider({
                     args: [
                         stakeWei,
                         BigInt(durationSec),
+                        title,
                         profileRef.current?.name ?? "",
                     ],
                     value: stakeWei,

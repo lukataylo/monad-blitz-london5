@@ -144,7 +144,9 @@ export default function JoinScreen({
 
                 {/* Hero card */}
                 <View style={styles.hero}>
-                    <Text style={styles.heroLabel}>10K CLUB</Text>
+                    <Text style={styles.heroLabel}>
+                        {(challenge.title || "10K Club").toUpperCase()}
+                    </Text>
                     <View style={styles.potRow}>
                         <Text style={styles.potNumber}>{potMon}</Text>
                         <Text style={styles.potUnit}> MON</Text>

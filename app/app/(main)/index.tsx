@@ -207,8 +207,8 @@ export default function JoinRoute() {
     );
 
     const onCreate = useCallback(
-        async (stakeWei: bigint, durationSec: number) => {
-            const id = await createChallenge(stakeWei, durationSec);
+        async (stakeWei: bigint, durationSec: number, title: string) => {
+            const id = await createChallenge(stakeWei, durationSec, title);
             if (id === null) {
                 Alert.alert(
                     "Create failed",

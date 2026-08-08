@@ -266,6 +266,7 @@ export function ChallengeProvider({
                         BigInt(durationSec),
                         title,
                         profileRef.current?.name ?? "",
+                        0, // kind: 0 = steps (reps challenges land with the exercise tracker)
                     ],
                     value: stakeWei,
                     // Monad charges on gas_limit, not gas_used — keep it modest.

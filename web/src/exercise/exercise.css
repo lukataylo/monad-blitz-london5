@@ -1,0 +1,145 @@
+/* Exercise tracker module — scoped with .ex- prefix */
+
+.ex-card {
+  --ex-cream: #f7f2e5;
+  --ex-ink: #111;
+  --ex-lime: #d9e856;
+  --ex-lavender: #c8bdf4;
+  --ex-pink: #f6c8d8;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: var(--ex-cream);
+  border: 2px solid var(--ex-ink);
+  border-radius: 24px;
+  color: var(--ex-ink);
+}
+
+.ex-stage {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 2px solid var(--ex-ink);
+  background: var(--ex-lavender);
+}
+
+.ex-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* mirror the selfie view */
+  opacity: 0;
+}
+
+.ex-video[data-live] {
+  opacity: 1;
+}
+
+.ex-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  text-align: center;
+}
+
+.ex-caption {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ex-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 10px;
+  background: var(--ex-lime);
+  border: 2px solid var(--ex-ink);
+  border-radius: 999px;
+}
+
+.ex-counter {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 18px;
+  background: var(--ex-cream);
+  border: 2px solid var(--ex-ink);
+  border-radius: 16px;
+}
+
+.ex-reps {
+  font-size: 56px;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ex-reps-label {
+  margin-top: 2px;
+}
+
+.ex-denied {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+  padding: 16px;
+  background: var(--ex-pink);
+  border: 2px solid var(--ex-ink);
+  border-radius: 16px;
+}
+
+.ex-denied-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.ex-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ex-feedback {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ex-btn {
+  flex-shrink: 0;
+  padding: 10px 22px;
+  background: var(--ex-ink);
+  color: var(--ex-cream);
+  border: 2px solid var(--ex-ink);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ex-btn:hover:not(:disabled) {
+  background: #000;
+}
+
+.ex-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

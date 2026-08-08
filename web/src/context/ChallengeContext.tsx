@@ -260,7 +260,7 @@ export function ChallengeProvider({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
                     functionName: "createChallenge",
-                    args: [stakeWei, BigInt(durationSec), title, profileName()],
+                    args: [stakeWei, BigInt(durationSec), title, profileName(), 0],
                     value: stakeWei,
                     // Monad charges on gas_limit, not gas_used — keep it modest.
                     gas: GAS_CREATE,

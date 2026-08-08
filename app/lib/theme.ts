@@ -1,4 +1,4 @@
-// Walk The Walk design tokens — from the reference mockup.
+// Forfit design tokens — from the reference mockup.
 // Cream canvas, black ink, lime/lavender/pink "sticker" blobs, black pill CTAs.
 export const theme = {
     colors: {

@@ -1,8 +1,10 @@
-# Walk The Walk 🚶💰
+# Forfit 🚶💰
 
 **Stake crypto with your crew. Most steps (or squats) takes the pot.**
 
-A social fitness game on [Monad](https://monad.xyz) testnet, built at Monad Blitz London. Friends stake MON into a shared pool, race each other on steps or camera-counted reps, and when the timer hits zero the contract pays the winner 70% and the runner-up 30% — automatically.
+**Forfit turns your movements into stakes.** Throw MON into a pot with your friends, pick your format — a 15-minute Blitz, a week-long Classic, or a 1-minute camera squat-off — and race. Your phone counts steps from motion, your camera counts reps with on-device pose detection, and there's no "+1" button to tap your way to a win. Scores stream on-chain while you move, and the instant the timer hits zero the contract pays out on its own: 70% to the winner, 30% to the runner-up, straight to their wallets. No host, no escrow, no trust. No extension or seed phrase either — an email and a password derive your wallet in the browser, and the faucet funds it before you've finished reading this. Get fit, or forfeit.
+
+Built on [Monad](https://monad.xyz) testnet at Monad Blitz London.
 
 **Live app:** https://walk-the-walk-production.up.railway.app
 
@@ -17,15 +19,13 @@ Open the live app, tap **Log in**, and use the shared demo account (pre-funded w
 
 Logging in with these credentials derives the demo wallet on any device — or tap **Create account** to mint your own wallet (the faucet auto-funds new wallets). Note the demo account is shared: anyone reading this README controls the same wallet, so don't leave real challenges running on it.
 
+> **Why `walkthewalk` still appears below.** The app was renamed to Forfit late; the old name survives only in identifiers that are load-bearing and cannot be edited without breaking something live — the wallet-derivation domain (changing it changes every derived address, including the funded demo account), the demo email (it's an input to that derivation), `localStorage` keys (one of them holds your private key), the Railway hostname, and the deployed `WalkPool` contract. Everything a user sees says Forfit.
+
 ---
 
 ## How it works
 
-1. **Create an account** — a wallet is derived in your browser from your email + a generated password. No extension, no seed phrase, no server-side keys. A faucet auto-drips test MON so you can play immediately.
-2. **Start a challenge** — pick steps or reps (squats/jumping jacks via your camera), a stake, and a format: step challenges run from a day to a month; camera rep races are live rounds — a 1-minute Minute Madness, the 3-minute Showdown, or 15-minute Endurance. You get an invite link, and you can run several challenges at once — the home screen lists everything ongoing, and the leaderboard keeps a tap-through history of finished ones.
-3. **Friends tap the link** — they stake the same amount and they're in.
-4. **Move** — phone motion tracking counts steps; the camera + on-device pose detection (MediaPipe) counts reps. Your count moves the instant a rep is seen, rivals' counts stream in live under the camera, and scores auto-sync on-chain (every 5s in short rounds).
-5. **Timer ends** — the app settles the challenge on-chain and pushes winnings straight to the winners' wallets. Confetti included.
+Creating an account derives a wallet in your browser from your email and a generated password — no extension, no seed phrase, no server-side keys — and a faucet drips test MON so you can play immediately. A full-screen wizard (kind → name → pace → stake → review) starts a challenge: step races run Blitz 15 min, Sprint 1 day, Classic 1 week or Marathon 1 month, while camera rep races are live rounds — Minute Madness 1 min, the 3-minute Showdown, or 15-minute Endurance — staked with a slider, a preset (0.1 / 0.5 / 1 MON), or any amount down to 0.001. Friends tap your invite link or scan its QR, stake the same amount, and they're in. Then you move: phone motion counts steps and the camera plus on-device MediaPipe pose detection counts reps (camera-only — there's no manual "+1" to tap your way to a win), your count updating the instant a rep is seen while rivals' scores stream in live and sync on-chain every 5s in short rounds. When the timer hits zero the app settles on-chain and pushes winnings straight to the winners' wallets, confetti included — and since you can run several challenges at once, the home screen lists everything ongoing while the leaderboard keeps a tap-through history of finished ones.
 
 ## Repo layout
 
@@ -65,7 +65,9 @@ VITE_WALKPOOL_ADDRESS=0x2E0f08bEFFa35D34D60490e7f3f9a92c06Ce1F2F
 VITE_FAUCET_URL=https://<your-faucet>.up.railway.app
 ```
 
-`npm run build` type-checks and bundles; `npm start` serves the production build (the Railway entrypoint).
+`npm run build` type-checks and bundles; `npm start` serves the production build (the Railway entrypoint); `npm run lint` runs oxlint.
+
+**Dev-only screen previews.** Some screens need on-chain history that costs real time and real MON to produce. In a dev server, `?preview=ended` and `?preview=live` render those states from a synthetic challenge ([`web/src/lib/previewChallenge.ts`](web/src/lib/previewChallenge.ts)). It's hard-gated on `import.meta.env.DEV`, so production builds can still only ever show data that came from chain.
 
 ### Contracts
 
@@ -110,13 +112,16 @@ getChallenge(uint256 id) / getParticipants(uint256 id) / nextId()
 
 - **Zero-friction wallets.** First visit generates a private key straight into `localStorage`; creating an account replaces it with a key derived from `keccak256(domain | email | password)`, so the same credentials produce the same wallet on any device — accounts with no backend at all.
 - **Demo mode.** With no (or an invalid) `VITE_WALKPOOL_ADDRESS`, the app boots into a fully navigable UI with transactions disabled — nothing fake is ever rendered from chain state.
-- **On-device fitness tracking.** Steps come from the DeviceMotion API; reps come from MediaPipe pose landmarks run entirely in-browser with per-exercise finite-state-machine detectors. No video or motion data ever leaves the phone — only the final number goes on-chain.
+- **On-device fitness tracking.** Steps come from the DeviceMotion API; reps come from MediaPipe pose landmarks run entirely in-browser with per-exercise finite-state-machine detectors (squats, jumping jacks). The pose model is preloaded so the camera is warm before a round starts. No video or motion data ever leaves the phone — only the final number goes on-chain.
+- **Kind-aware copy.** The contract stores only `kind` (0/1), but every user-facing string routes through [`lib/kindCopy.ts`](web/src/lib/kindCopy.ts), so a squat challenge never reads like a reskinned step challenge. The specific exercise for `kind` 1 is the creator's local pick, persisted per challenge id.
+- **Speed you can see.** Every landed transaction raises a "Live on Monad" toast with its confirmation time and an explorer link — the sub-second block times are the demo.
 - **Self-settling endgame.** Any client that observes the deadline passing fires `settle` (concurrent settles are reconciled via simulation — a "settled" revert is treated as success), then auto-claims its own payout.
+- **Theming.** Three themes (Cream / Midnight / Sorbet) are pure CSS blocks scoped under `[data-theme]` on `<html>`, picked from the Wallet tab and remembered in `localStorage`.
 
 ## Testing
 
 - **Contracts:** `forge test` — 18 unit tests over create/join/submit/settle/claim, deadline boundaries, dust and refund paths.
-- **Web e2e:** Playwright suite driving the production build — onboarding, account creation, deterministic login across devices, tab navigation, wallet view, demo-mode guards, and hostile-URL fuzzing.
+- **Web:** `npm run build` (`tsc -b` + Vite bundle) and `npm run lint` (oxlint). Web flows were verified by hand and by an ad-hoc Playwright pass during the hackathon; that browser suite isn't checked in.
 
 ## Honest limitations (testnet game, on purpose)
 

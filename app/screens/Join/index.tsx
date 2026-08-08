@@ -166,7 +166,7 @@ export default function JoinScreen({
                             ? "YOU'RE INVITED 🎉"
                             : challenge
                               ? challenge.title.toUpperCase()
-                              : "WALK THE WALK"}
+                              : "FORFIT"}
                     </Text>
                     {isInvite && challenge ? (
                         <Text style={styles.heroTitle}>{challenge.title}</Text>

@@ -22,7 +22,7 @@ import {
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
 function inviteMessage(id: number): string {
-    return `Join my Walk The Walk challenge! Open walk-the-walk-production.up.railway.app?c=${id} or enter code ${id} in the app`;
+    return `Join my Forfit challenge! Open walk-the-walk-production.up.railway.app?c=${id} or enter code ${id} in the app`;
 }
 
 type PendingAction = "join" | "create" | null;

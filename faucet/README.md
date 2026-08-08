@@ -1,6 +1,6 @@
-# Walk The Walk Faucet
+# Forfit Faucet
 
-Tiny stateless faucet microservice that auto-funds brand-new Walk The Walk
+Tiny stateless faucet microservice that auto-funds brand-new Forfit
 wallets on **Monad testnet**. A wallet is only dripped if its on-chain balance
 is exactly `0` — so the service needs no database and can't be farmed by
 already-funded accounts. In-memory per-IP (5/hour) and per-address
@@ -40,7 +40,7 @@ curl http://localhost:3001/health
 
 Deploy this directory as a service. Railway injects `PORT`; you must set
 `FAUCET_PRIVATE_KEY` in the service variables and keep the faucet wallet
-topped up with testnet MON. CORS allows the Walk The Walk production origin
+topped up with testnet MON. CORS allows the Forfit production origin
 (`https://walk-the-walk-production.up.railway.app`), `http://localhost:5173`,
 and any `*.up.railway.app` origin.
 

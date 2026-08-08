@@ -11,6 +11,9 @@ import { privateKeyToAccount } from "viem/accounts";
 // domain prefix and no work factor, so anyone who learns (or guesses) the
 // email+password can recompute the key offline. Good enough for testnet MON
 // in a step-challenge game; do NOT reuse this scheme for real funds.
+// DO NOT rename to match the app's current name (Forfit). This string is an
+// input to the key derivation below: changing it changes every derived
+// address, orphaning every existing account — including the funded demo one.
 const DOMAIN = "walkthewalk.v1";
 
 export function deriveWallet(

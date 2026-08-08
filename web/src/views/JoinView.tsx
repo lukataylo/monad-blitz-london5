@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChallengeSummaryRow } from "../components/ChallengeList";
+import { InviteQR } from "../components/InviteQR";
 import { ProfileModal } from "../components/ProfileModal";
 import { Avatar, formatMon, WalletPill } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
@@ -646,6 +647,11 @@ export function JoinView({
                         <div className="caption" style={{ marginBottom: 8 }}>
                             Invite your crew
                         </div>
+                        {inviteLink != null && (
+                            <div style={{ marginBottom: 8 }}>
+                                <InviteQR link={inviteLink} />
+                            </div>
+                        )}
                         <div className="invite-box">
                             <span className="invite-link">{inviteLink}</span>
                             <button className="chip-btn" onClick={copyInvite}>

@@ -28,6 +28,25 @@ const MODEL_PATH = "/models/pose_landmarker_lite.task";
 /** No pose for this long while tracking -> "step back" cue. */
 const NO_POSE_TIMEOUT_MS = 2000;
 
+/**
+ * Warm the heavy bits before the user hits "start": the ~150kB
+ * @mediapipe/tasks-vision chunk and the ~5MB pose model + wasm go into the
+ * HTTP cache so the on-stage "enable camera" tap starts in milliseconds
+ * instead of stalling on downloads mid-demo. Fire-and-forget, safe to call
+ * repeatedly.
+ */
+let poseWarmed = false;
+export function preloadPose(): void {
+  if (poseWarmed) return;
+  poseWarmed = true;
+  void import("@mediapipe/tasks-vision").catch(() => {
+    poseWarmed = false; // offline — allow a retry later
+  });
+  for (const path of [MODEL_PATH, `${WASM_PATH}/vision_wasm_internal.wasm`]) {
+    fetch(path, { cache: "force-cache" }).catch(() => {});
+  }
+}
+
 /* Overlay palette (matches exercise.css) */
 const SKELETON_COLOR = "#D9E856"; // lime connections
 const JOINT_COLOR = "#111111"; // ink dots

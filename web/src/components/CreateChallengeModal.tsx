@@ -6,6 +6,7 @@ import {
     saveExerciseChoice,
     type StoredExercise,
 } from "../lib/exerciseChoice";
+import { InviteQR } from "./InviteQR";
 import { getKindCopy } from "../lib/kindCopy";
 import { loadProfile } from "../lib/profile";
 
@@ -312,6 +313,7 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                         Send this link to your crew — everyone who joins{" "}
                         <strong>{title.trim()}</strong> stakes {stakeStr} MON.
                     </div>
+                    {inviteLink != null && <InviteQR link={inviteLink} />}
                     <div className="invite-big">{inviteLink}</div>
                     <div style={{ display: "flex", gap: 8 }}>
                         <button

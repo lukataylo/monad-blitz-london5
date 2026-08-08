@@ -83,7 +83,8 @@ function ScoreCard({
     const you = challenge.participants.find((p) => p.isYou);
 
     const [base, setBase] = useState<number>(you?.steps ?? 0);
-    const [manualOpen, setManualOpen] = useState(!collapseManual);
+    // Steps: editable total + demo controls. Reps: read-only — camera only.
+    const manualOpen = !collapseManual;
     const total = base + extra;
 
     const seeded = useRef(false);
@@ -199,12 +200,13 @@ function ScoreCard({
                         : "Synced on-chain"}
             </div>
 
-            {/* demo fallback, visually secondary — kind 1 keeps it (and the
-                editable total) tucked behind a "manual entry" disclosure */}
-            {manualOpen ? (
+            {/* demo fallback for STEP challenges only. Rep challenges get no
+                manual entry at all — the camera is the input, and a +1000
+                button in a staked game hands any judge the obvious exploit. */}
+            {!collapseManual && manualOpen && (
                 <div className="demo-controls">
                     <div className="caption" style={{ marginBottom: 8 }}>
-                        {collapseManual ? "Manual entry" : "Demo controls"}
+                        Demo controls
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
                         <button
@@ -219,25 +221,8 @@ function ScoreCard({
                         >
                             +1000
                         </button>
-                        {collapseManual && (
-                            <button
-                                className="text-btn"
-                                style={{ marginLeft: "auto" }}
-                                onClick={() => setManualOpen(false)}
-                            >
-                                Hide
-                            </button>
-                        )}
                     </div>
                 </div>
-            ) : (
-                <button
-                    className="text-btn"
-                    style={{ width: "100%", marginTop: 10 }}
-                    onClick={() => setManualOpen(true)}
-                >
-                    Manual entry
-                </button>
             )}
         </div>
     );
@@ -535,6 +520,15 @@ export function LeaderboardView({
                 : "squat",
         [challenge]
     );
+
+    // Warm the camera stack the moment a rep challenge is on screen: lazy
+    // chunk + MediaPipe bundle + wasm + 5MB model all enter the HTTP cache
+    // so "Enable camera" starts instantly instead of downloading mid-demo.
+    useEffect(() => {
+        if (challenge?.kind === 1) {
+            void import("../exercise").then((m) => m.preloadPose());
+        }
+    }, [challenge?.kind]);
 
     // Tracker sessions reset to 0 when the camera restarts — accumulate
     // positive deltas so the contribution to the score stays monotonic.

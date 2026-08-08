@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CreateChallengeModal } from "./components/CreateChallengeModal";
 import { TabBar } from "./components/TabBar";
+import { TxToasts } from "./components/TxToasts";
 import { useChallengeContext } from "./context/ChallengeContext";
 import { OnboardingModal } from "./onboarding/OnboardingModal";
 import { loadProfile } from "./lib/profile";
@@ -127,6 +128,8 @@ export default function App() {
             {showCreate && (
                 <CreateChallengeModal onClose={() => setShowCreate(false)} />
             )}
+
+            <TxToasts />
 
             <TabBar view={view} onSelect={(v) => setOverride(v)} />
         </div>

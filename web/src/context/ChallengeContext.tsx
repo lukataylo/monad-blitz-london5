@@ -11,6 +11,7 @@ import { useWalletContext } from "./WalletContext";
 import { walkPoolAbi } from "../lib/abi";
 import { isContractConfigured, WALKPOOL_ADDRESS } from "../lib/chain";
 import { recordMyChallenge } from "../lib/myChallenges";
+import { emitTx } from "../lib/txFeed";
 import { loadProfile, MAX_NAME_LENGTH } from "../lib/profile";
 import type { Challenge, Participant } from "../lib/types";
 
@@ -354,6 +355,7 @@ export function ChallengeProvider({
             setTxPending(true);
             setError(null);
             try {
+                const t0 = performance.now();
                 const hash = await walletClient.writeContract({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
@@ -372,6 +374,13 @@ export function ChallengeProvider({
                 const receipt = await publicClient.waitForTransactionReceipt({
                     hash,
                 });
+                if (receipt.status === "success") {
+                    emitTx({
+                        hash,
+                        label: "Challenge created",
+                        ms: Math.round(performance.now() - t0),
+                    });
+                }
                 const logs = parseEventLogs({
                     abi: walkPoolAbi,
                     eventName: "ChallengeCreated",
@@ -454,6 +463,7 @@ export function ChallengeProvider({
                     }
                     throw simErr;
                 }
+                const t0 = performance.now();
                 const hash = await walletClient.writeContract({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
@@ -462,7 +472,16 @@ export function ChallengeProvider({
                     value: stake,
                     gas: GAS_WRITE,
                 });
-                await publicClient.waitForTransactionReceipt({ hash });
+                const receipt = await publicClient.waitForTransactionReceipt({
+                    hash,
+                });
+                if (receipt.status === "success") {
+                    emitTx({
+                        hash,
+                        label: "Stake joined",
+                        ms: Math.round(performance.now() - t0),
+                    });
+                }
                 recordMyChallenge(id);
                 setActiveChallengeId(id);
                 await Promise.all([fetchChallenge(id), refreshBalance()]);
@@ -523,6 +542,7 @@ export function ChallengeProvider({
                     }
                     throw simErr;
                 }
+                const t0 = performance.now();
                 const hash = await walletClient.writeContract({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
@@ -553,6 +573,14 @@ export function ChallengeProvider({
                     setError(`${label} failed (transaction reverted)`);
                     return "failed";
                 }
+                emitTx({
+                    hash,
+                    label:
+                        functionName === "settle"
+                            ? "Pot settled"
+                            : "Winnings claimed",
+                    ms: Math.round(performance.now() - t0),
+                });
                 await afterWrite();
                 return "success";
             } catch (e) {
@@ -588,6 +616,7 @@ export function ChallengeProvider({
                     ],
                     account: walletClient.account,
                 });
+                const t0 = performance.now();
                 const hash = await walletClient.writeContract({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
@@ -601,6 +630,13 @@ export function ChallengeProvider({
                 const receipt = await publicClient.waitForTransactionReceipt({
                     hash,
                 });
+                if (receipt.status === "success") {
+                    emitTx({
+                        hash,
+                        label: "Score synced",
+                        ms: Math.round(performance.now() - t0),
+                    });
+                }
                 await afterWrite();
                 return receipt.status === "success";
             } catch (e) {

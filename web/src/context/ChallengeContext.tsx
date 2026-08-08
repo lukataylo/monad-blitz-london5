@@ -10,7 +10,6 @@ import { parseEventLogs } from "viem";
 import { useWalletContext } from "./WalletContext";
 import { walkPoolAbi } from "../lib/abi";
 import { isContractConfigured, WALKPOOL_ADDRESS } from "../lib/chain";
-import { MOCK_CHALLENGE } from "../lib/mock";
 import { loadProfile, MAX_NAME_LENGTH } from "../lib/profile";
 import type { Challenge, Participant } from "../lib/types";
 
@@ -48,14 +47,25 @@ function initialActiveId(): number | null {
     return null;
 }
 
+/** Does this read failure look like "challenge doesn't exist" rather than a network hiccup? */
+function looksLikeMissingChallenge(msg: string): boolean {
+    return /revert|out-of-bounds|returned no data|invalid opcode|position `?0x/i.test(
+        msg
+    );
+}
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 interface ChallengeContextType {
     activeChallengeId: number | null;
     challenge: Challenge | null;
     loading: boolean;
     error: string | null;
     txPending: boolean;
-    /** true when the contract address is not configured — serves mock data */
+    /** true when the contract address is not configured — writes are disabled */
     demoMode: boolean;
+    /** true when the active id doesn't exist on-chain (getChallenge reverted / zero data) */
+    challengeNotFound: boolean;
     setActiveChallengeId: (id: number | null) => void;
     refresh: () => Promise<void>;
     /** returns the new challenge id, or null on failure */
@@ -90,6 +100,7 @@ export function ChallengeProvider({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [txPending, setTxPending] = useState(false);
+    const [challengeNotFound, setChallengeNotFound] = useState(false);
 
     const fetchInFlight = useRef(false);
     // Ref so the polling closure always sees the current value without re-subscribing.
@@ -100,6 +111,7 @@ export function ChallengeProvider({
         setActiveChallengeIdState(id);
         setChallenge(null);
         setError(null);
+        setChallengeNotFound(false);
         try {
             if (id == null) {
                 localStorage.removeItem(ACTIVE_ID_KEY);
@@ -132,6 +144,13 @@ export function ChallengeProvider({
                     }),
                 ]);
                 const [creator, stake, endTime, settled, pot, , title] = info;
+                // Unset mapping/array slot -> zero struct: the id was never created.
+                if (creator.toLowerCase() === ZERO_ADDRESS) {
+                    setChallenge(null);
+                    setChallengeNotFound(true);
+                    setError(null);
+                    return;
+                }
                 const [addrs, steps, payouts, names] = parts;
                 const you = addressRef.current?.toLowerCase();
                 const participants: Participant[] = addrs.map((addr, i) => {
@@ -163,12 +182,21 @@ export function ChallengeProvider({
                     pot,
                     participants,
                 });
+                setChallengeNotFound(false);
                 setError(null);
             } catch (e) {
-                // Keep the last good challenge; just surface the error.
-                setError(
-                    e instanceof Error ? e.message : "Failed to load challenge"
-                );
+                const msg =
+                    e instanceof Error ? e.message : "Failed to load challenge";
+                // A revert on getChallenge means the id doesn't exist on-chain —
+                // that's a state, not an error banner.
+                if (looksLikeMissingChallenge(msg)) {
+                    setChallenge(null);
+                    setChallengeNotFound(true);
+                    setError(null);
+                } else {
+                    // Keep the last good challenge; just surface the error.
+                    setError(msg);
+                }
             } finally {
                 fetchInFlight.current = false;
             }
@@ -188,7 +216,8 @@ export function ChallengeProvider({
             return;
         }
         if (demoMode) {
-            setChallenge(MOCK_CHALLENGE);
+            // No contract -> nothing real to show. Never serve fake data.
+            setChallenge(null);
             return;
         }
         if (!publicClient) return;
@@ -218,9 +247,10 @@ export function ChallengeProvider({
             title: string
         ): Promise<number | null> => {
             if (demoMode) {
-                console.warn("[demo] createChallenge — contract not configured");
-                setActiveChallengeId(MOCK_CHALLENGE.id);
-                return MOCK_CHALLENGE.id;
+                setError(
+                    "Contract not deployed yet — transactions are disabled"
+                );
+                return null;
             }
             if (!walletClient || !publicClient) return null;
             setTxPending(true);
@@ -274,8 +304,9 @@ export function ChallengeProvider({
     const join = useCallback(
         async (id: number) => {
             if (demoMode) {
-                console.warn("[demo] join — contract not configured");
-                setActiveChallengeId(MOCK_CHALLENGE.id);
+                setError(
+                    "Contract not deployed yet — transactions are disabled"
+                );
                 return;
             }
             if (!walletClient || !publicClient) return;
@@ -399,6 +430,7 @@ export function ChallengeProvider({
                 error,
                 txPending,
                 demoMode,
+                challengeNotFound,
                 setActiveChallengeId,
                 refresh,
                 createChallenge,

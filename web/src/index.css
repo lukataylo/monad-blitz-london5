@@ -804,6 +804,34 @@ button {
   background: transparent;
 }
 
+/* ---- loading shimmer (invite arrival) ---- */
+.skeleton {
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    rgba(17, 17, 17, 0.07) 25%,
+    rgba(17, 17, 17, 0.14) 50%,
+    rgba(17, 17, 17, 0.07) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* faucet link in the fund-your-wallet card */
+.faucet-link {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+  text-decoration: underline;
+}
+
 .demo-badge {
   align-self: center;
   font-size: 11px;

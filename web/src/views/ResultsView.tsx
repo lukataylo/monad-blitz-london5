@@ -36,7 +36,11 @@ function Confetti() {
     );
 }
 
-export function ResultsView() {
+export function ResultsView({
+    onBackToJoin,
+}: {
+    onBackToJoin?: () => void;
+}) {
     const { challenge, claim, txPending, setActiveChallengeId } =
         useChallengeContext();
 
@@ -50,9 +54,21 @@ export function ResultsView() {
 
     if (!challenge || sorted.length === 0) {
         return (
-            <div className="card" style={{ textAlign: "center" }}>
-                <div className="caption">No results yet</div>
-            </div>
+            <>
+                <h1 className="title-heavy">
+                    No results <span className="highlight-lime">yet</span>
+                </h1>
+                <div className="card" style={{ textAlign: "center" }}>
+                    <div className="caption" style={{ marginBottom: 14 }}>
+                        Finish a challenge to see the podium
+                    </div>
+                    {onBackToJoin && (
+                        <button className="pill-btn" onClick={onBackToJoin}>
+                            Go to Join →
+                        </button>
+                    )}
+                </div>
+            </>
         );
     }
 

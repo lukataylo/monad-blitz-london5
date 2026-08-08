@@ -37,7 +37,7 @@ export default function App() {
         <div className="shell">
             {demoMode && (
                 <div className="demo-badge">
-                    Demo mode · no contract configured
+                    Contract not deployed yet — transactions disabled
                 </div>
             )}
             {error && <div className="error-banner">{error}</div>}
@@ -45,8 +45,12 @@ export default function App() {
             {view === "join" && (
                 <JoinView onStartChallenge={() => setShowCreate(true)} />
             )}
-            {view === "board" && <LeaderboardView />}
-            {view === "results" && <ResultsView />}
+            {view === "board" && (
+                <LeaderboardView onBackToJoin={() => setOverride("join")} />
+            )}
+            {view === "results" && (
+                <ResultsView onBackToJoin={() => setOverride("join")} />
+            )}
 
             {showCreate && (
                 <CreateChallengeModal onClose={() => setShowCreate(false)} />

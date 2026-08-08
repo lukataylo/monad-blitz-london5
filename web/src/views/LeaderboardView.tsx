@@ -139,7 +139,7 @@ function StepControls({ challenge }: { challenge: Challenge }) {
             </div>
             <div className="caption" style={{ marginTop: 10 }}>
                 {demoMode
-                    ? "Demo mode — steps stay local"
+                    ? "Contract not deployed — steps stay local"
                     : dirty
                       ? "Auto-syncs on-chain every 15s"
                       : "Synced on-chain"}
@@ -169,9 +169,15 @@ function StepControls({ challenge }: { challenge: Challenge }) {
     );
 }
 
-export function LeaderboardView() {
-    const { challenge, settle, txPending } = useChallengeContext();
+export function LeaderboardView({
+    onBackToJoin,
+}: {
+    onBackToJoin?: () => void;
+}) {
+    const { challenge, activeChallengeId, settle, txPending } =
+        useChallengeContext();
     const now = useNow();
+    const [inviteCopied, setInviteCopied] = useState(false);
 
     const sorted = useMemo(
         () =>
@@ -181,11 +187,36 @@ export function LeaderboardView() {
         [challenge]
     );
 
-    if (!challenge) {
+    const copyInvite = () => {
+        if (challenge == null) return;
+        const link = `${window.location.origin}?c=${challenge.id}`;
+        navigator.clipboard?.writeText(link).catch(() => {});
+        setInviteCopied(true);
+        setTimeout(() => setInviteCopied(false), 1500);
+    };
+
+    // No challenge at all — point back to Join instead of pretending.
+    if (activeChallengeId == null || !challenge) {
+        const loading = activeChallengeId != null;
         return (
-            <div className="card" style={{ textAlign: "center" }}>
-                <div className="caption">Loading challenge…</div>
-            </div>
+            <>
+                <h1 className="title-heavy">
+                    No leaderboard{" "}
+                    <span className="highlight-lime">yet</span>
+                </h1>
+                <div className="card" style={{ textAlign: "center" }}>
+                    <div className="caption" style={{ marginBottom: 14 }}>
+                        {loading
+                            ? "Loading challenge from chain…"
+                            : "Join or start a challenge to get walking"}
+                    </div>
+                    {!loading && onBackToJoin && (
+                        <button className="pill-btn" onClick={onBackToJoin}>
+                            Go to Join →
+                        </button>
+                    )}
+                </div>
+            </>
         );
     }
 
@@ -267,6 +298,27 @@ export function LeaderboardView() {
                     );
                 })}
             </div>
+
+            {/* only walker so far — nudge to share the invite link */}
+            {challenge.participants.length <= 1 && (
+                <div
+                    className="card card--lavender"
+                    style={{ textAlign: "center" }}
+                >
+                    <div style={{ fontSize: 18, fontWeight: 800 }}>
+                        Waiting for your crew
+                    </div>
+                    <div
+                        className="caption caption--ink"
+                        style={{ margin: "6px 0 14px" }}
+                    >
+                        Share the invite link to fill the board
+                    </div>
+                    <button className="chip-btn" onClick={copyInvite}>
+                        {inviteCopied ? "Copied!" : "Copy invite link"}
+                    </button>
+                </div>
+            )}
 
             <StepControls challenge={challenge} />
 

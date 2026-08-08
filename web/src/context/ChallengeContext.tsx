@@ -12,7 +12,13 @@ import { useWalletContext } from "./WalletContext";
 import { walkPoolAbi } from "../lib/abi";
 import { isContractConfigured, WALKPOOL_ADDRESS } from "../lib/chain";
 import { recordMyChallenge } from "../lib/myChallenges";
-import { previewChallenge, previewName } from "../lib/previewChallenge";
+import {
+    joinPreview,
+    previewChallenge,
+    previewName,
+    settlePreview,
+    submitPreviewScore,
+} from "../lib/previewChallenge";
 import { emitTx } from "../lib/txFeed";
 import { loadProfile, MAX_NAME_LENGTH } from "../lib/profile";
 import type { Challenge, Participant } from "../lib/types";
@@ -150,10 +156,10 @@ export function ChallengeProvider({
         () => (import.meta.env.DEV ? previewName() : null),
         []
     );
-    const previewData = useMemo(
-        () =>
-            import.meta.env.DEV && preview ? previewChallenge(preview) : null,
-        [preview]
+    // Held in state, not derived: the mock writes below (submit / settle /
+    // join) update it, so the whole flow is walkable instead of frozen.
+    const [previewData, setPreviewData] = useState<Challenge | null>(() =>
+        import.meta.env.DEV && preview ? previewChallenge(preview) : null
     );
 
     const [activeChallengeId, setActiveChallengeIdState] = useState<
@@ -700,10 +706,27 @@ export function ChallengeProvider({
                 setActiveChallengeId,
                 refresh,
                 createChallenge,
-                join,
-                submitSteps,
-                settle,
-                claim,
+                // In preview the writes are mocked against local state — the
+                // synthetic challenge has no on-chain counterpart, so the real
+                // ones would revert and the flow would dead-end.
+                join: previewData
+                    ? async () => setPreviewData(joinPreview(previewData))
+                    : join,
+                submitSteps: previewData
+                    ? async (n: number) => {
+                          setPreviewData(submitPreviewScore(previewData, n));
+                          return true;
+                      }
+                    : submitSteps,
+                settle: previewData
+                    ? async () => {
+                          setPreviewData(settlePreview(previewData));
+                          return "success" as TxOutcome;
+                      }
+                    : settle,
+                claim: previewData
+                    ? async () => "success" as TxOutcome
+                    : claim,
             }}
         >
             {children}

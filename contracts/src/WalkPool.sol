@@ -21,6 +21,7 @@ contract WalkPool {
         uint256 stake;
         uint64 endTime;
         bool settled;
+        uint8 kind; // 0 = steps, 1 = reps (squats etc.)
         string title; // challenge display name, max 64 bytes, may be empty
         address[] participants;
         mapping(address => Participant) info;
@@ -34,7 +35,8 @@ contract WalkPool {
         address indexed creator,
         uint256 stake,
         uint64 endTime,
-        string title
+        string title,
+        uint8 kind
     );
     event Joined(uint256 indexed id, address indexed who, string name);
     event StepsSubmitted(uint256 indexed id, address indexed who, uint256 steps);
@@ -48,29 +50,33 @@ contract WalkPool {
     /// @param title Challenge display name (max 64 bytes; empty allowed,
     ///        client renders a fallback).
     /// @param name Creator's display name (max 32 bytes; empty allowed).
+    /// @param kind Challenge kind: 0 = steps, 1 = reps (squats etc.).
     function createChallenge(
         uint256 stake,
         uint64 duration,
         string calldata title,
-        string calldata name
+        string calldata name,
+        uint8 kind
     ) external payable returns (uint256 id) {
         require(msg.value == stake, "stake mismatch");
         require(duration > 0, "duration zero");
         require(bytes(title).length <= 64, "title too long");
         require(bytes(name).length <= 32, "name too long");
+        require(kind <= 1, "bad kind");
 
         id = nextId++;
         Challenge storage c = challenges[id];
         c.creator = msg.sender;
         c.stake = stake;
         c.endTime = uint64(block.timestamp) + duration;
+        c.kind = kind;
         c.title = title;
 
         c.participants.push(msg.sender);
         c.info[msg.sender].joined = true;
         c.info[msg.sender].name = name;
 
-        emit ChallengeCreated(id, msg.sender, stake, c.endTime, title);
+        emit ChallengeCreated(id, msg.sender, stake, c.endTime, title, kind);
         emit Joined(id, msg.sender, name);
     }
 
@@ -91,7 +97,9 @@ contract WalkPool {
         emit Joined(id, msg.sender, name);
     }
 
-    /// @notice Submit a (monotonically non-decreasing) step count before the deadline.
+    /// @notice Submit a (monotonically non-decreasing) score before the deadline.
+    /// @dev "Steps" here means score units generically: step counts for kind 0
+    ///      challenges, exercise reps for kind 1 — the contract treats both the same.
     function submitSteps(uint256 id, uint256 steps) external {
         Challenge storage c = challenges[id];
         Participant storage p = c.info[msg.sender];
@@ -185,7 +193,8 @@ contract WalkPool {
             bool settled,
             uint256 pot,
             uint256 participantCount,
-            string memory title
+            string memory title,
+            uint8 kind
         )
     {
         Challenge storage c = challenges[id];
@@ -196,6 +205,7 @@ contract WalkPool {
         participantCount = c.participants.length;
         pot = c.stake * participantCount;
         title = c.title;
+        kind = c.kind;
     }
 
     /// @notice Parallel arrays of participants, their steps, payouts, and display names.

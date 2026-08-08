@@ -35,6 +35,11 @@
         "name": "name",
         "type": "string",
         "internalType": "string"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ],
     "outputs": [
@@ -91,6 +96,11 @@
         "name": "title",
         "type": "string",
         "internalType": "string"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "internalType": "uint8"
       }
     ],
     "stateMutability": "view"
@@ -224,6 +234,12 @@
         "type": "string",
         "indexed": false,
         "internalType": "string"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
       }
     ],
     "anonymous": false

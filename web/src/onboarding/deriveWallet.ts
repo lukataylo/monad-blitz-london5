@@ -40,7 +40,7 @@ function randInt(max: number): number {
 
 export function generatePassword(): string {
     const words: string[] = [];
-    while (words.length < 3) {
+    while (words.length < 2) {
         const w = WORDS[randInt(WORDS.length)];
         if (!words.includes(w)) words.push(w);
     }

@@ -8,6 +8,7 @@ import {
 import {
     createPublicClient,
     createWalletClient,
+    fallback,
     http,
     type Account,
     type Chain,
@@ -58,12 +59,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             const account = privateKeyToAccount(pk);
             const pub = createPublicClient({
                 chain: monadTestnet,
-                transport: http(),
+                transport: fallback([
+                    http("https://testnet-rpc.monad.xyz"),
+                    http("https://monad-testnet.drpc.org"),
+                    http("https://10143.rpc.thirdweb.com"),
+                ]),
             });
             const wal = createWalletClient({
                 account,
                 chain: monadTestnet,
-                transport: http(),
+                transport: fallback([
+                    http("https://testnet-rpc.monad.xyz"),
+                    http("https://monad-testnet.drpc.org"),
+                    http("https://10143.rpc.thirdweb.com"),
+                ]),
             });
             setAddress(account.address);
             setPublicClient(pub);

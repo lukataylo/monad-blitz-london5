@@ -460,7 +460,34 @@ export function JoinView({
                     )}
 
                     {/* CTA card */}
-                    {hasActive ? (
+                    {hasActive &&
+                    (challenge.settled ||
+                        challenge.endTime <= Math.floor(Date.now() / 1000)) ? (
+                        <div className="card card--pink">
+                            <div className="caption caption--ink">
+                                Challenge over
+                            </div>
+                            <div
+                                style={{
+                                    fontSize: 22,
+                                    fontWeight: 800,
+                                    margin: "6px 0 14px",
+                                }}
+                            >
+                                “{challenge.title.trim() || `#${challenge.id}`}”
+                                has ended
+                            </div>
+                            <button
+                                className="pill-btn"
+                                onClick={() => {
+                                    setActiveChallengeId(null);
+                                    requireProfile(onStartChallenge);
+                                }}
+                            >
+                                Start your own challenge →
+                            </button>
+                        </div>
+                    ) : hasActive ? (
                         <div className="card card--lavender">
                             <div className="caption caption--ink">
                                 Your stake

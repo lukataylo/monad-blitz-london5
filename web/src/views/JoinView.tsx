@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ProfileModal } from "../components/ProfileModal";
 import { Avatar, formatMon, WalletPill } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
@@ -312,6 +312,81 @@ function InviteHero({
     );
 }
 
+/**
+ * The first-run layout: headline on top, full-bleed art band below with the
+ * primary action riding on it. Shared by the landing screen and the
+ * after-a-challenge-ends screen so both read as the same app rather than two
+ * different designs.
+ */
+function OnboardScreen({
+    title,
+    sub,
+    children,
+}: {
+    title: ReactNode;
+    sub: ReactNode;
+    children: ReactNode;
+}) {
+    return (
+        <div className="onboard">
+            <div className="onboard-copy">
+                <h1 className="onboard-title">{title}</h1>
+                <p className="onboard-sub">{sub}</p>
+            </div>
+
+            {/* illustration band — bleeds past the shell padding and is
+                cropped by the band edges, like the reference */}
+            <div className="onboard-band">
+                {/* shapes sit within x≈60–360 of the viewBox so the "slice"
+                    crop can't shave the accent colours off */}
+                <svg
+                    className="onboard-art"
+                    viewBox="0 0 420 300"
+                    preserveAspectRatio="xMidYMax slice"
+                    aria-hidden
+                >
+                    <circle cx="298" cy="112" r="62" fill="var(--pink)" />
+                    <circle cx="96" cy="212" r="112" fill="var(--ochre)" />
+                    <circle cx="332" cy="214" r="124" fill="var(--lavender)" />
+                    <circle cx="206" cy="252" r="158" fill="var(--lime)" />
+
+                    {/* hand-drawn face — the curves are deliberately uneven
+                        (eyes at slightly different heights, off-centre grin)
+                        so it reads as drawn, not geometric */}
+                    <g
+                        fill="none"
+                        stroke="var(--ink)"
+                        strokeWidth="6.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        transform="rotate(-1.5 206 160)"
+                    >
+                        {/* the rotate above is an SVG attribute, so the
+                            animated transforms live on inner groups — a CSS
+                            transform here would replace it, not compose */}
+                        <g className="mascot">
+                            <path
+                                className="mascot-eye"
+                                d="M171 139 C177 124 191 123 198 137"
+                            />
+                            <path
+                                className="mascot-eye"
+                                d="M216 137 C223 122 237 123 242 139"
+                            />
+                            <path
+                                className="mascot-mouth"
+                                d="M159 158 C181 195 233 197 254 156"
+                            />
+                        </g>
+                    </g>
+                </svg>
+
+                <div className="onboard-cta">{children}</div>
+            </div>
+        </div>
+    );
+}
+
 export function JoinView({
     onStartChallenge,
 }: {
@@ -370,6 +445,17 @@ export function JoinView({
     );
     const heroIsReps = hasActive && challenge.kind === 1;
 
+    // A finished challenge is a dead end on this screen — it gets the same
+    // first-run layout as the landing state, pointing at the next challenge.
+    // Resolved here (not in JSX) so the branch doesn't depend on narrowing.
+    const ended =
+        hasActive &&
+        (challenge.settled ||
+            challenge.endTime <= Math.floor(Date.now() / 1000));
+    const endedTitle = hasActive
+        ? challenge.title.trim() || `Challenge #${challenge.id}`
+        : "";
+
     const inviteLink = useMemo(
         () =>
             hasActive
@@ -411,6 +497,24 @@ export function JoinView({
                     requireProfile={requireProfile}
                     onStartOwn={startOwnFromInvite}
                 />
+            ) : ended ? (
+                /* finished challenge — same first-run layout as the landing
+                   screen, so the dead end still looks like the app */
+                <OnboardScreen
+                    title={<>That&rsquo;s a wrap.</>}
+                    sub={`“${endedTitle}” has ended — start the next one.`}
+                >
+                    <button
+                        className="pill-btn"
+                        onClick={() => {
+                            setActiveChallengeId(null);
+                            requireProfile(onStartChallenge);
+                        }}
+                        disabled={txPending}
+                    >
+                        Start your own challenge →
+                    </button>
+                </OnboardScreen>
             ) : hasActive ? (
                 <>
                     {/* hero — real pot for the loaded challenge. Rep
@@ -476,76 +580,43 @@ export function JoinView({
                         </div>
                     )}
 
-                    {/* CTA card */}
-                    {challenge.settled ||
-                    challenge.endTime <= Math.floor(Date.now() / 1000) ? (
-                        <div className="card card--pink">
-                            <div className="caption caption--ink">
-                                Challenge over
-                            </div>
-                            <div
-                                style={{
-                                    fontSize: 22,
-                                    fontWeight: 800,
-                                    margin: "6px 0 14px",
-                                }}
-                            >
-                                “{challenge.title.trim() || `#${challenge.id}`}”
-                                has ended
-                            </div>
-                            <button
-                                className="pill-btn"
-                                onClick={() => {
-                                    setActiveChallengeId(null);
-                                    requireProfile(onStartChallenge);
-                                }}
-                            >
-                                Start your own challenge →
-                            </button>
+                    {/* CTA card — the ended case is handled above, so this
+                        branch is always a live challenge */}
+                    <div className="card card--lavender">
+                        <div className="caption caption--ink">Your stake</div>
+                        <div
+                            style={{
+                                fontSize: 28,
+                                fontWeight: 800,
+                                margin: "6px 0 14px",
+                            }}
+                        >
+                            {formatMon(challenge.stake, 3)} MON
                         </div>
-                    ) : (
-                        <div className="card card--lavender">
-                            <div className="caption caption--ink">
-                                Your stake
-                            </div>
-                            <div
-                                style={{
-                                    fontSize: 28,
-                                    fontWeight: 800,
-                                    margin: "6px 0 14px",
-                                }}
-                            >
-                                {formatMon(challenge.stake, 3)} MON
-                            </div>
-                            <button
-                                className="pill-btn"
-                                onClick={() =>
-                                    requireProfile(
-                                        () => void join(challenge.id)
-                                    )
-                                }
-                                disabled={txPending}
-                            >
-                                {txPending ? "Confirming…" : "Stake & Join →"}
-                            </button>
-                            <div
-                                className="caption"
-                                style={{ marginTop: 10, textAlign: "center" }}
-                            >
-                                Joining challenge #{activeChallengeId}
-                            </div>
-                            <button
-                                className="text-btn"
-                                style={{ width: "100%", marginTop: 8 }}
-                                onClick={() =>
-                                    requireProfile(onStartChallenge)
-                                }
-                                disabled={txPending}
-                            >
-                                Start your own challenge
-                            </button>
+                        <button
+                            className="pill-btn"
+                            onClick={() =>
+                                requireProfile(() => void join(challenge.id))
+                            }
+                            disabled={txPending}
+                        >
+                            {txPending ? "Confirming…" : "Stake & Join →"}
+                        </button>
+                        <div
+                            className="caption"
+                            style={{ marginTop: 10, textAlign: "center" }}
+                        >
+                            Joining challenge #{activeChallengeId}
                         </div>
-                    )}
+                        <button
+                            className="text-btn"
+                            style={{ width: "100%", marginTop: 8 }}
+                            onClick={() => requireProfile(onStartChallenge)}
+                            disabled={txPending}
+                        >
+                            Start your own challenge
+                        </button>
+                    </div>
 
                     {/* invite — only shown once there's a real link to share */}
                     <div>
@@ -561,129 +632,75 @@ export function JoinView({
                     </div>
                 </>
             ) : (
-                /* onboarding-style landing: headline up top, a full-bleed
-                   illustration band at the bottom, one primary action riding
-                   on it. Everything else is a step away. */
-                <div className="onboard">
-                    <div className="onboard-copy">
-                        <div className="caption caption--ink">
-                            Walk The Walk
-                        </div>
-                        <h1 className="onboard-title">
+                /* first-run landing — same layout as the ended screen */
+                <OnboardScreen
+                    title={
+                        <>
                             {heroCopy.tagline[0]}
                             <br />
                             {heroCopy.tagline[1]}
-                        </h1>
-                        <p className="onboard-sub">{heroCopy.heroSub}</p>
-                    </div>
-
-                    {/* illustration band — bleeds past the shell padding and
-                        is cropped by the band edges, like the reference */}
-                    <div className="onboard-band">
-                        {/* shapes sit within x≈60–360 of the viewBox so the
-                            "slice" crop can't shave the accent colours off */}
-                        <svg
-                            className="onboard-art"
-                            viewBox="0 0 420 300"
-                            preserveAspectRatio="xMidYMax slice"
-                            aria-hidden
-                        >
-                            <circle cx="298" cy="112" r="62" fill="var(--pink)" />
-                            <circle cx="96" cy="212" r="112" fill="var(--ochre)" />
-                            <circle
-                                cx="332"
-                                cy="214"
-                                r="124"
-                                fill="var(--lavender)"
-                            />
-                            <circle cx="206" cy="252" r="158" fill="var(--lime)" />
-
-                            {/* hand-drawn face — the curves are deliberately
-                                uneven (eyes at slightly different heights,
-                                off-centre grin) so it reads as drawn, not
-                                geometric */}
-                            <g
-                                fill="none"
-                                stroke="var(--ink)"
-                                strokeWidth="6.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                transform="rotate(-1.5 206 160)"
-                            >
-                                <path d="M171 139 C177 124 191 123 198 137" />
-                                <path d="M216 137 C223 122 237 123 242 139" />
-                                <path d="M159 158 C181 195 233 197 254 156" />
-                            </g>
-                        </svg>
-
-                        <div className="onboard-cta">
-                            {/* join by code — secondary path, hidden behind a
-                                link until asked for so the landing state has
-                                one primary action, not several competing */}
-                            {showCodeEntry && (
-                                <div className="onboard-code">
-                                    <div style={{ display: "flex", gap: 8 }}>
-                                        <input
-                                            className="code-input"
-                                            inputMode="numeric"
-                                            placeholder="Challenge id, e.g. 3"
-                                            autoFocus
-                                            value={code}
-                                            onChange={(e) =>
-                                                setCode(e.target.value)
-                                            }
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter")
-                                                    joinByCode();
-                                            }}
-                                        />
-                                        <button
-                                            className="chip-btn"
-                                            onClick={joinByCode}
-                                            disabled={
-                                                txPending ||
-                                                demoMode ||
-                                                code.trim() === ""
-                                            }
-                                        >
-                                            Join
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            <button
-                                className="pill-btn"
-                                onClick={() => requireProfile(onStartChallenge)}
-                                disabled={txPending || demoMode}
-                            >
-                                Start a challenge →
-                            </button>
-
-                            {demoMode ? (
-                                <div
-                                    className="caption caption--ink"
-                                    style={{
-                                        marginTop: 10,
-                                        textAlign: "center",
+                        </>
+                    }
+                    sub={heroCopy.heroSub}
+                >
+                    {/* join by code — secondary path, hidden behind a link
+                        until asked for so the landing state has one primary
+                        action, not several competing */}
+                    {showCodeEntry && (
+                        <div className="onboard-code">
+                            <div style={{ display: "flex", gap: 8 }}>
+                                <input
+                                    className="code-input"
+                                    inputMode="numeric"
+                                    placeholder="Challenge id, e.g. 3"
+                                    autoFocus
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") joinByCode();
                                     }}
+                                />
+                                <button
+                                    className="chip-btn"
+                                    onClick={joinByCode}
+                                    disabled={
+                                        txPending ||
+                                        demoMode ||
+                                        code.trim() === ""
+                                    }
                                 >
-                                    Contract not deployed yet — transactions
-                                    disabled
-                                </div>
-                            ) : (
-                                !showCodeEntry && (
-                                    <button
-                                        className="text-btn onboard-code-link"
-                                        onClick={() => setShowCodeEntry(true)}
-                                    >
-                                        Have an invite code?
-                                    </button>
-                                )
-                            )}
+                                    Join
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    )}
+
+                    <button
+                        className="pill-btn"
+                        onClick={() => requireProfile(onStartChallenge)}
+                        disabled={txPending || demoMode}
+                    >
+                        Start a challenge →
+                    </button>
+
+                    {demoMode ? (
+                        <div
+                            className="caption caption--ink"
+                            style={{ marginTop: 10, textAlign: "center" }}
+                        >
+                            Contract not deployed yet — transactions disabled
+                        </div>
+                    ) : (
+                        !showCodeEntry && (
+                            <button
+                                className="text-btn onboard-code-link"
+                                onClick={() => setShowCodeEntry(true)}
+                            >
+                                Have an invite code?
+                            </button>
+                        )
+                    )}
+                </OnboardScreen>
             )}
 
             {showProfile && (

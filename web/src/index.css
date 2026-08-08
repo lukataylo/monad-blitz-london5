@@ -138,7 +138,6 @@ button {
   font-weight: 800;
   letter-spacing: -0.035em;
   line-height: 0.98;
-  margin-top: 14px;
   text-wrap: balance;
 }
 
@@ -182,6 +181,67 @@ button {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+/* mascot idle animation — one slow shared 6s beat so the bob, the squint and
+   the grin read as a single breath rather than three separate loops.
+   fill-box origins keep each transform centred on its own path. */
+.mascot,
+.mascot-eye,
+.mascot-mouth {
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.mascot {
+  animation: mascot-breathe 6s ease-in-out infinite;
+}
+
+.mascot-eye {
+  animation: mascot-squint 6s ease-in-out infinite;
+}
+
+.mascot-mouth {
+  animation: mascot-grin 6s ease-in-out infinite;
+}
+
+@keyframes mascot-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3.5px);
+  }
+}
+
+@keyframes mascot-squint {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.84);
+  }
+}
+
+@keyframes mascot-grin {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot,
+  .mascot-eye,
+  .mascot-mouth {
+    animation: none;
+  }
 }
 
 .onboard-cta {
@@ -254,12 +314,100 @@ button {
   font-weight: 700;
 }
 
-.wallet-pill .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 4px;
+.wallet-glyph {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  opacity: 0.75;
+}
+
+/* ---- wallet sheet (slides up from the pill) ---- */
+.wallet-scrim {
+  position: fixed;
+  inset: 0;
+  /* above the tab bar (40) and the modal overlay (50) */
+  z-index: 60;
+  background: rgba(17, 17, 17, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: wallet-fade 0.18s ease both;
+}
+
+.wallet-sheet {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  padding: 10px 20px calc(24px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: wallet-slide 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.wallet-grab {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.18);
+  margin: 2px auto 8px;
+}
+
+.wallet-balance {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.wallet-hint {
+  margin-top: 2px;
+}
+
+/* the code IS the copy button — full address, wrapped, never truncated */
+.wallet-code {
+  width: 100%;
+  text-align: left;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.55;
+  word-break: break-all;
+  background: var(--cream);
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  padding: 12px 14px;
+  transition: background 0.18s ease;
+}
+
+.wallet-code--copied {
   background: var(--lime);
-  border: 1px solid rgba(17, 17, 17, 0.2);
+}
+
+@keyframes wallet-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes wallet-slide {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wallet-scrim,
+  .wallet-sheet {
+    animation: none;
+  }
 }
 
 /* ---- chips row ---- */
@@ -693,11 +841,58 @@ button {
 }
 
 /* ---- create-challenge wizard ---- */
+/* Back sits in the top-left corner of the viewport, not in the content flow —
+   otherwise it rides the vertically-centred content and lands somewhere
+   different on every step. Fixed for the same reason as the pager: the sheet
+   scrolls when a step overflows. */
 .wiz-head {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  padding: calc(14px + env(safe-area-inset-top)) 0 10px;
+  background: var(--cream);
+  pointer-events: none;
+}
+
+/* inner track matches the sheet's width + padding, so Back aligns to the
+   content's left edge on any viewport rather than the raw screen edge */
+.wiz-head-inner {
+  width: 100%;
+  max-width: 420px;
+  padding: 0 24px;
+  min-height: 22px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 24px;
+}
+
+/* the wizard reserves room top and bottom for the pinned header and pager,
+   so a tall step's content can't run underneath either */
+.wiz-sheet {
+  position: relative;
+  padding-top: calc(58px + env(safe-area-inset-top));
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+/* progress lives in one spot on every step. Fixed rather than absolute: the
+   sheet scrolls when a tall step overflows, and an absolute pager would ride
+   the scroll out of view instead of holding its position. The cream band
+   keeps scrolled content from colliding with it. */
+.wiz-pager {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 14px 0 calc(20px + env(safe-area-inset-bottom));
+  background: var(--cream);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
 }
 
 .wiz-back {
@@ -706,6 +901,8 @@ button {
   color: var(--muted);
   text-decoration: underline;
   padding: 2px 4px 2px 0;
+  /* the header strip is click-through; only the button itself isn't */
+  pointer-events: auto;
 }
 
 .wiz-back:disabled {
@@ -736,6 +933,72 @@ button {
 .wiz-dot--active {
   width: 20px;
   background: var(--ink);
+}
+
+/* ---- stake slider ---- */
+.stake-slider-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stake-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.stake-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.14);
+}
+
+.stake-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -9px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(17, 17, 17, 0.28);
+}
+
+.stake-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.14);
+}
+
+.stake-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 3px solid #ffffff;
+}
+
+.stake-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* insufficient-funds warning + faucet link */
+.stake-short {
+  line-height: 1.5;
+}
+
+.stake-topup {
+  font-size: inherit;
+  white-space: nowrap;
 }
 
 .wiz-step {

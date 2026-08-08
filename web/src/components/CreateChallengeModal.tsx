@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { parseEther } from "viem";
+import { formatEther, parseEther } from "viem";
 import { useChallengeContext } from "../context/ChallengeContext";
+import { useWalletContext } from "../context/WalletContext";
 import {
     saveExerciseChoice,
     type StoredExercise,
@@ -17,6 +18,12 @@ import { loadProfile } from "../lib/profile";
 // level so it survives the auto-switch to the leaderboard after creation.
 
 const MIN_STAKE_MON = 0.001;
+// Slider covers the common range; the custom field still takes any amount
+// down to MIN_STAKE_MON, so the slider is a shortcut and never a ceiling.
+const SLIDER_MIN = 0.01;
+const SLIDER_MAX = 2;
+const SLIDER_STEP = 0.01;
+const FAUCET_URL = "https://testnet.monad.xyz";
 const MAX_TITLE_LENGTH = 64;
 
 // What gets counted. On-chain the contract stores only kind (0 steps /
@@ -147,6 +154,7 @@ function friendlyError(msg: string): string {
 
 export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
     const { createChallenge, txPending, error } = useChallengeContext();
+    const { balance } = useWalletContext();
 
     const [step, setStep] = useState(1);
     const [title, setTitle] = useState("");
@@ -178,6 +186,18 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
         stakeStr.trim() !== "" &&
         Number.isFinite(stakeNum) &&
         stakeNum >= MIN_STAKE_MON;
+
+    // Can this wallet actually cover the stake? parseEther throws on junk
+    // input, so a failed parse just means "no opinion yet".
+    const stakeWei = useMemo(() => {
+        if (!stakeOk) return null;
+        try {
+            return parseEther(stakeStr.trim());
+        } catch {
+            return null;
+        }
+    }, [stakeStr, stakeOk]);
+    const shortOnFunds = stakeWei != null && balance < stakeWei;
 
     const profileNameLabel = loadProfile()?.name.trim() || "—";
 
@@ -253,8 +273,8 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
     // ---- final stage: challenge is live ----
     if (liveId != null) {
         return (
-            <div className="modal-overlay">
-                <div className="modal-sheet">
+            <div className="modal-overlay modal-overlay--full">
+                <div className="modal-sheet modal-sheet--full">
                     <div className="caption">Challenge #{liveId}</div>
                     <div className="modal-title">Challenge is live! 🎉</div>
                     <div style={{ fontSize: 15, fontWeight: 600, opacity: 0.7 }}>
@@ -290,50 +310,28 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
 
     // ---- wizard ----
     return (
-        <div className="modal-overlay" onClick={requestClose}>
-            <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
-                {/* header: back link + progress dots */}
+        <div
+            className="modal-overlay modal-overlay--full"
+            onClick={requestClose}
+        >
+            <div
+                className="modal-sheet modal-sheet--full wiz-sheet"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* header + footer are both pinned to the viewport, so Back
+                    and the progress dots hold the same spot on every step no
+                    matter how tall that step's content is */}
                 <div className="wiz-head">
-                    {step > 1 ? (
-                        <button
-                            className="wiz-back"
-                            onClick={() => setStep(step - 1)}
-                            disabled={txPending}
-                        >
-                            ← Back
-                        </button>
-                    ) : (
-                        <span className="caption">New challenge</span>
-                    )}
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "flex-end",
-                            gap: 4,
-                        }}
-                    >
-                        <div
-                            className="wiz-dots"
-                            aria-label={`Step ${step} of ${stepList.length}: ${STEP_LABELS[stepName]}`}
-                        >
-                            {stepList.map((s, i) => (
-                                <span
-                                    key={s}
-                                    title={STEP_LABELS[s]}
-                                    className={`wiz-dot${
-                                        i + 1 === step
-                                            ? " wiz-dot--active"
-                                            : i + 1 < step
-                                              ? " wiz-dot--done"
-                                              : ""
-                                    }`}
-                                />
-                            ))}
-                        </div>
-                        <span className="caption" style={{ fontSize: 10 }}>
-                            {STEP_LABELS[stepName]} · {step}/{stepList.length}
-                        </span>
+                    <div className="wiz-head-inner">
+                        {step > 1 && (
+                            <button
+                                className="wiz-back"
+                                onClick={() => setStep(step - 1)}
+                                disabled={txPending}
+                            >
+                                ← Back
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -505,6 +503,32 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                                 </button>
                             ))}
                         </div>
+                        {/* slider — clamped for display so a large custom
+                            amount doesn't push the thumb off the track */}
+                        <div className="stake-slider-wrap">
+                            <input
+                                type="range"
+                                className="stake-slider"
+                                min={SLIDER_MIN}
+                                max={SLIDER_MAX}
+                                step={SLIDER_STEP}
+                                value={Math.min(
+                                    SLIDER_MAX,
+                                    Math.max(
+                                        SLIDER_MIN,
+                                        Number.isFinite(stakeNum)
+                                            ? stakeNum
+                                            : SLIDER_MIN
+                                    )
+                                )}
+                                onChange={(e) => setStakeStr(e.target.value)}
+                                aria-label="Stake amount in MON"
+                            />
+                            <div className="stake-scale">
+                                <span>{SLIDER_MIN} MON</span>
+                                <span>{SLIDER_MAX} MON</span>
+                            </div>
+                        </div>
                         <div>
                             <div className="caption" style={{ marginBottom: 6 }}>
                                 Or custom · MON
@@ -532,6 +556,22 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                                 {stakeOk ? formatMonNumber(stakeNum) : "?"} MON
                             </strong>
                         </div>
+                        {shortOnFunds && (
+                            <div className="field-error stake-short">
+                                Your wallet holds{" "}
+                                {formatMonNumber(Number(formatEther(balance)))}{" "}
+                                MON — not enough to stake{" "}
+                                {formatMonNumber(stakeNum)} MON.{" "}
+                                <a
+                                    className="faucet-link stake-topup"
+                                    href={FAUCET_URL}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    Top up →
+                                </a>
+                            </div>
+                        )}
                         <div className="payout-row">
                             <span>🥇 70%</span>
                             <span>🥈 30%</span>
@@ -624,6 +664,29 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                         Cancel
                     </button>
                 )}
+
+                {/* pinned footer — margin-top:auto parks it at the bottom, so
+                    it lands in the same place on every step */}
+                <div className="wiz-pager">
+                    <div
+                        className="wiz-dots"
+                        aria-label={`Step ${step} of ${stepList.length}: ${STEP_LABELS[stepName]}`}
+                    >
+                        {stepList.map((s, i) => (
+                            <span
+                                key={s}
+                                title={STEP_LABELS[s]}
+                                className={`wiz-dot${
+                                    i + 1 === step
+                                        ? " wiz-dot--active"
+                                        : i + 1 < step
+                                          ? " wiz-dot--done"
+                                          : ""
+                                }`}
+                            />
+                        ))}
+                    </div>
+                </div>
             </div>
         </div>
     );

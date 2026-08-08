@@ -1398,3 +1398,469 @@ button {
     animation: none;
   }
 }
+
+/* wallet address: two deliberate balanced lines, never an orphan wrap */
+.wallet-address {
+  word-break: normal;
+}
+
+.wallet-address span {
+  display: block;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
+/* your own chip in the live race strip — lime, always first */
+.race-chip--you {
+  background: var(--lime);
+  border: 2px solid var(--ink);
+}
+
+.race-chip--you .race-chip-name {
+  color: var(--ink);
+}
+
+/* ---- my-challenges lists (home "Ongoing" + leaderboard history) ---- */
+.chal-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: #ffffff;
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  padding: 12px 14px;
+  transition: transform 0.12s ease;
+}
+
+.chal-row:active {
+  transform: scale(0.98);
+}
+
+.chal-row--history {
+  background: transparent;
+  border-style: dashed;
+  border-color: rgba(17, 17, 17, 0.18);
+}
+
+.chal-row-emoji {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.chal-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chal-row-title {
+  font-size: 15px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chal-row-meta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chal-row-rank {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  background: rgba(17, 17, 17, 0.06);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.chal-row-rank--lead {
+  background: var(--lime);
+  color: var(--ink);
+}
+
+.chal-row-arrow {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+/* horizontal switcher chips on the leaderboard */
+.chal-switch {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px;
+  scrollbar-width: none;
+}
+
+.chal-switch::-webkit-scrollbar {
+  display: none;
+}
+
+.chal-switch-chip {
+  flex-shrink: 0;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(17, 17, 17, 0.18);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.chal-switch-chip--active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #ffffff;
+}
+
+/* ================= theming engine (appended) =================
+   Themes are scoped under [data-theme="…"] on <html>; "cream" is the
+   default and needs no attribute. src/lib/theme.ts flips the attribute. */
+
+/* ---- theme picker (Appearance card) ---- */
+.theme-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.theme-chip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: 16px;
+  border: 2px solid var(--card-border);
+  background: var(--cream);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  transition: border-color 0.15s ease;
+}
+
+.theme-chip--active {
+  border-color: var(--ink);
+}
+
+.theme-chip:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.theme-chip-emoji {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.theme-chip-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.theme-chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+/* ================= midnight: true dark mode ================= */
+[data-theme="midnight"] {
+  color-scheme: dark;
+  --cream: #141412; /* body + "cream" inner boxes follow automatically */
+  --ink: #f2efe6;
+  --muted: #9a958a;
+  --card-border: rgba(255, 255, 255, 0.08);
+  /* --lime / --lavender / --pink / --ochre stay: pastel fills keep ink text
+     (scoped reset below), and as text/border accents they pop on dark. */
+}
+
+/* neutral surfaces that sit on the body */
+[data-theme="midnight"] .card,
+[data-theme="midnight"] .row-card,
+[data-theme="midnight"] .chip,
+[data-theme="midnight"] .wallet-pill,
+[data-theme="midnight"] .modal-sheet,
+[data-theme="midnight"] .claim-pill {
+  background: #1e1e1b;
+}
+
+/* inner surfaces that sit on a card — one step darker for contrast */
+[data-theme="midnight"] .steps-input,
+[data-theme="midnight"] .code-input,
+[data-theme="midnight"] .field-input,
+[data-theme="midnight"] .invite-box,
+[data-theme="midnight"] .chip-btn,
+[data-theme="midnight"] .icon-btn,
+[data-theme="midnight"] .seg-btn,
+[data-theme="midnight"] .pace-card,
+[data-theme="midnight"] .race-chip {
+  background: #141412;
+}
+
+/* pill button inverts: bg is var(--ink) (now light), text goes dark */
+[data-theme="midnight"] .pill-btn {
+  color: var(--cream);
+}
+
+[data-theme="midnight"] .pill-btn--outline {
+  background: transparent;
+  color: var(--ink);
+}
+
+/* ink-background elements: keep bg var(--ink) (light), flip hardcoded
+   white/lime text to dark so it stays readable */
+[data-theme="midnight"] .pot-pill,
+[data-theme="midnight"] .seg-btn--active,
+[data-theme="midnight"] .onb-tab--active,
+[data-theme="midnight"] .rec-badge,
+[data-theme="midnight"] .race-chip-plus {
+  color: var(--cream);
+}
+
+[data-theme="midnight"] .seg-btn--active {
+  background: var(--ink);
+}
+
+[data-theme="midnight"] .chip-btn--danger {
+  background: var(--ink);
+  color: var(--cream);
+  border-color: var(--ink);
+}
+
+/* pastel surfaces stay light — reset ink/muted inside them so their
+   hardcoded-dark text and var(--ink) descendants stay dark-on-pastel */
+[data-theme="midnight"] .card--lime,
+[data-theme="midnight"] .card--lavender,
+[data-theme="midnight"] .card--pink,
+[data-theme="midnight"] .pace-card--active,
+[data-theme="midnight"] .race-chip--you,
+[data-theme="midnight"] .claim-card,
+[data-theme="midnight"] .pw-box,
+[data-theme="midnight"] .copy-btn,
+[data-theme="midnight"] .onb-warn,
+[data-theme="midnight"] .error-banner,
+[data-theme="midnight"] .discard-bar,
+[data-theme="midnight"] .logout-confirm,
+[data-theme="midnight"] .demo-badge,
+[data-theme="midnight"] .highlight-lime,
+[data-theme="midnight"] .highlight-pink {
+  --ink: #111111;
+  --muted: #5c574b;
+  --cream: #f7f2e5;
+  --card-border: rgba(17, 17, 17, 0.06);
+  color: #111111;
+}
+
+/* re-assert pastel fills the generic dark-surface overrides above beat */
+[data-theme="midnight"] .card--lime {
+  background: var(--lime);
+}
+
+[data-theme="midnight"] .card--lavender {
+  background: var(--lavender);
+}
+
+[data-theme="midnight"] .card--pink {
+  background: var(--pink);
+}
+
+[data-theme="midnight"] .pace-card--active {
+  background: var(--lime);
+  border-color: var(--ink);
+}
+
+[data-theme="midnight"] .race-chip--you {
+  background: var(--lime);
+  border-color: var(--ink);
+}
+
+/* controls inside pastel surfaces go back to white fills */
+[data-theme="midnight"] :is(.card--lime, .card--lavender, .card--pink, .logout-confirm) .icon-btn,
+[data-theme="midnight"] :is(.card--lime, .card--lavender, .card--pink, .logout-confirm) .chip-btn:not(.chip-btn--danger),
+[data-theme="midnight"] :is(.card--lime, .card--lavender, .card--pink) :is(.steps-input, .code-input, .field-input) {
+  background: #ffffff;
+}
+
+[data-theme="midnight"] :is(.card--lime, .card--lavender, .card--pink) .progress-track {
+  background: rgba(17, 17, 17, 0.08);
+}
+
+/* suggest-chip hover flashes lime — needs dark text in that state */
+[data-theme="midnight"] .suggest-chip:hover {
+  color: #111111;
+}
+
+/* hardcoded near-black rgba() details -> white-based equivalents */
+[data-theme="midnight"] .avatar {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+[data-theme="midnight"] .progress-track {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+[data-theme="midnight"] .invite-box,
+[data-theme="midnight"] .invite-big {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="midnight"] .demo-controls {
+  border-top-color: rgba(255, 255, 255, 0.14);
+}
+
+[data-theme="midnight"] .review-row {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="midnight"] .review-row:last-child {
+  border-bottom: none;
+}
+
+[data-theme="midnight"] .wiz-dot {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="midnight"] .wiz-dot--done {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="midnight"] .wiz-dot--active {
+  background: var(--ink);
+}
+
+[data-theme="midnight"] .chip-btn--ghost {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: transparent;
+}
+
+[data-theme="midnight"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.08) 25%,
+    rgba(255, 255, 255, 0.16) 50%,
+    rgba(255, 255, 255, 0.08) 75%
+  );
+  background-size: 200% 100%;
+}
+
+[data-theme="midnight"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="midnight"] .field-error {
+  color: #ff9d94;
+}
+
+/* spinner: top segment follows the surface it sits on via var(--cream) —
+   dark on the (now light) pill-btn, light again inside pastel scopes */
+[data-theme="midnight"] .spinner {
+  border-color: rgba(20, 20, 18, 0.25);
+  border-top-color: var(--cream);
+}
+
+[data-theme="midnight"] .spinner--ink {
+  border-color: rgba(255, 255, 255, 0.2);
+  border-top-color: var(--ink);
+}
+
+/* translucent dark tab bar (base rgba(247,242,229,.82) is hardcoded) */
+[data-theme="midnight"] .tab-bar {
+  background: rgba(20, 20, 18, 0.82);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ================= sorbet: warm light alt theme ================= */
+[data-theme="sorbet"] {
+  --cream: #fdeee4;
+  --ink: #201510;
+  --lime: #ffd166; /* mango */
+  --lavender: #b8e0d2; /* mint */
+  --pink: #ff9fb2;
+  --ochre: #f4a259;
+  --muted: #8d7365;
+  --card-border: rgba(32, 21, 16, 0.08);
+}
+
+/* neutral white surfaces warm up to match */
+[data-theme="sorbet"] .card,
+[data-theme="sorbet"] .row-card,
+[data-theme="sorbet"] .modal-sheet,
+[data-theme="sorbet"] .chip,
+[data-theme="sorbet"] .wallet-pill,
+[data-theme="sorbet"] .race-chip,
+[data-theme="sorbet"] .claim-pill,
+[data-theme="sorbet"] .chip-btn,
+[data-theme="sorbet"] .icon-btn,
+[data-theme="sorbet"] .seg-btn,
+[data-theme="sorbet"] .pace-card,
+[data-theme="sorbet"] .steps-input,
+[data-theme="sorbet"] .code-input,
+[data-theme="sorbet"] .field-input,
+[data-theme="sorbet"] .invite-box {
+  background: #fffaf5;
+}
+
+/* re-assert accent fills the generic overrides above would beat */
+[data-theme="sorbet"] .card--lime {
+  background: var(--lime);
+}
+
+[data-theme="sorbet"] .card--lavender {
+  background: var(--lavender);
+}
+
+[data-theme="sorbet"] .card--pink {
+  background: var(--pink);
+}
+
+[data-theme="sorbet"] .pace-card--active {
+  background: var(--lime);
+}
+
+[data-theme="sorbet"] .race-chip--you {
+  background: var(--lime);
+}
+
+[data-theme="sorbet"] .seg-btn--active {
+  background: var(--ink);
+}
+
+[data-theme="sorbet"] .chip-btn--danger {
+  background: var(--ink);
+}
+
+/* translucent tab bar tracks the sorbet background (hardcoded in base) */
+[data-theme="sorbet"] .tab-bar {
+  background: rgba(253, 238, 228, 0.82);
+  border-top: 0.5px solid rgba(32, 21, 16, 0.12);
+}

@@ -7,9 +7,11 @@ import {
     useRef,
     useState,
 } from "react";
+import { ChallengeSummaryRow } from "../components/ChallengeList";
 import { Avatar, formatMon } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
 import { useMotionSteps } from "../hooks/useMotionSteps";
+import { useMyChallenges } from "../hooks/useMyChallenges";
 import {
     resolveExercise,
     type StoredExercise,
@@ -26,6 +28,7 @@ const ExerciseTracker = lazy(() =>
 // Auto-submit cadence: reps blitzes race in real time, steps can amble.
 const AUTO_SYNC_STEPS_MS = 15_000;
 const AUTO_SYNC_REPS_MS = 8_000; // gas economy: each submit costs the gas LIMIT on Monad
+const AUTO_SYNC_REPS_SHORT_MS = 5_000; // 1–3 min showdowns: tighter race feel
 
 function useNow(): number {
     const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -65,6 +68,7 @@ function ScoreCard({
     unit,
     motionUi,
     collapseManual = false,
+    onTotalChange,
 }: {
     challenge: Challenge;
     extra: number;
@@ -72,6 +76,8 @@ function ScoreCard({
     motionUi?: React.ReactNode;
     /** kind 1: camera is the input — tuck manual entry behind a disclosure */
     collapseManual?: boolean;
+    /** live local total (base + camera), for the race strip's "You" chip */
+    onTotalChange?: (total: number) => void;
 }) {
     const { submitSteps, txPending, demoMode } = useChallengeContext();
     const you = challenge.participants.find((p) => p.isYou);
@@ -100,6 +106,12 @@ function ScoreCard({
 
     const ended = Date.now() / 1000 >= challenge.endTime;
 
+    // Surface the live local total (your reps count instantly, no chain lag)
+    // so the race strip can pit it against rivals in real time.
+    useEffect(() => {
+        onTotalChange?.(total);
+    }, [total, onTotalChange]);
+
     const sync = async () => {
         const value = totalRef.current;
         // Guard against overlapping submits: skip while a tx is pending.
@@ -113,12 +125,20 @@ function ScoreCard({
     const syncRef = useRef(sync);
     syncRef.current = sync;
 
-    // Auto-submit when the counter changed — every 6s for reps (kind 1) so
-    // the shared board moves in near-real-time, every 15s for steps. Stops
-    // dead at the deadline: the contract reverts "ended" after endTime, and
-    // Monad charges the full gas limit for every doomed tx.
+    // Auto-submit when the counter changed — reps sync tighter than steps so
+    // the shared board moves in near-real-time, and short rounds (1–3 min
+    // showdowns) tighten further: 8s gaps would eat a fifth of the race.
+    // Stops dead at the deadline: the contract reverts "ended" after endTime,
+    // and Monad charges the full gas limit for every doomed tx.
+    const shortRace =
+        challenge.kind === 1 &&
+        challenge.endTime - Date.now() / 1000 <= 4 * 60;
     const autoSyncMs =
-        challenge.kind === 1 ? AUTO_SYNC_REPS_MS : AUTO_SYNC_STEPS_MS;
+        challenge.kind === 1
+            ? shortRace
+                ? AUTO_SYNC_REPS_SHORT_MS
+                : AUTO_SYNC_REPS_MS
+            : AUTO_SYNC_STEPS_MS;
     useEffect(() => {
         if (ended) return;
         const t = setInterval(() => {
@@ -274,8 +294,34 @@ function firstNameOf(name: string): string {
     return name.replace(/\s*\(you\)\s*$/i, "").split(/\s+/)[0] || "?";
 }
 
-function RaceStrip({ challenge }: { challenge: Challenge }) {
+function RaceStrip({
+    challenge,
+    yourLive,
+}: {
+    challenge: Challenge;
+    /** live local rep total — moves instantly with the camera, no chain lag */
+    yourLive?: number;
+}) {
     const you = challenge.participants.find((p) => p.isYou) ?? null;
+    // Your chip counts every rep the moment the camera sees it; the on-chain
+    // score is the floor (covers reloads, where the local session starts at 0).
+    const yourCount = Math.max(yourLive ?? 0, you?.steps ?? 0);
+
+    // Flash your own chip on every rep, same as rivals get on poll bumps.
+    const prevYour = useRef(yourCount);
+    const [yourBump, setYourBump] = useState<{
+        ts: number;
+        delta: number;
+    } | null>(null);
+    useEffect(() => {
+        if (yourCount > prevYour.current) {
+            setYourBump({
+                ts: Date.now(),
+                delta: yourCount - prevYour.current,
+            });
+        }
+        prevYour.current = yourCount;
+    }, [yourCount]);
     const rivals = useMemo(
         () =>
             challenge.participants
@@ -313,11 +359,11 @@ function RaceStrip({ challenge }: { challenge: Challenge }) {
 
     if (rivals.length === 0) return null;
 
-    // The rival closest to your score gets an "ahead/behind by N" caption.
+    // The rival closest to your LIVE score gets an "ahead/behind" caption.
     let nearest: Participant | null = null;
     if (you != null) {
         nearest = rivals.reduce((best, p) =>
-            Math.abs(p.steps - you.steps) < Math.abs(best.steps - you.steps)
+            Math.abs(p.steps - yourCount) < Math.abs(best.steps - yourCount)
                 ? p
                 : best
         );
@@ -327,11 +373,48 @@ function RaceStrip({ challenge }: { challenge: Challenge }) {
     const hidden = rivals.length - shown.length;
 
     return (
-        <div className="race-strip" aria-label="Rivals, live">
+        <div className="race-strip" aria-label="Live race">
+            {you != null && (
+                <div className="race-chip race-chip--you">
+                    {yourBump != null && (
+                        <span
+                            key={`flash-you-${yourBump.ts}`}
+                            className="race-chip-flash"
+                            aria-hidden
+                        />
+                    )}
+                    <Avatar
+                        name={you.name}
+                        address={you.address}
+                        style={{
+                            position: "relative",
+                            width: 28,
+                            height: 28,
+                            fontSize: 12,
+                            flexShrink: 0,
+                        }}
+                    />
+                    <span className="race-chip-main">
+                        <span className="race-chip-name">You</span>
+                        <span className="race-chip-count">
+                            {yourCount.toLocaleString()}
+                        </span>
+                    </span>
+                    {yourBump != null && (
+                        <span
+                            key={`plus-you-${yourBump.ts}`}
+                            className="race-chip-plus"
+                            aria-hidden
+                        >
+                            +{yourBump.delta.toLocaleString()}
+                        </span>
+                    )}
+                </div>
+            )}
             {shown.map((p) => {
                 const bump = bumps[p.address];
                 const gap =
-                    you != null && p === nearest ? p.steps - you.steps : null;
+                    you != null && p === nearest ? p.steps - yourCount : null;
                 return (
                     <div key={p.address} className="race-chip">
                         {bump != null && (
@@ -395,9 +478,11 @@ function RaceStrip({ challenge }: { challenge: Challenge }) {
 function RepControls({
     challenge,
     trackerReps,
+    onTotalChange,
 }: {
     challenge: Challenge;
     trackerReps: number;
+    onTotalChange?: (total: number) => void;
 }) {
     return (
         <ScoreCard
@@ -405,6 +490,7 @@ function RepControls({
             extra={trackerReps}
             unit="reps"
             collapseManual
+            onTotalChange={onTotalChange}
         />
     );
 }
@@ -414,9 +500,28 @@ export function LeaderboardView({
 }: {
     onBackToJoin?: () => void;
 }) {
-    const { challenge, activeChallengeId, settle, txPending } =
-        useChallengeContext();
+    const {
+        challenge,
+        activeChallengeId,
+        settle,
+        txPending,
+        setActiveChallengeId,
+    } = useChallengeContext();
     const now = useNow();
+
+    // All challenges this device is in: other running ones become switcher
+    // chips, finished ones the history list.
+    const { summaries } = useMyChallenges();
+    const otherOngoing = summaries.filter(
+        (s) =>
+            s.youIn &&
+            !s.settled &&
+            s.endTime > now &&
+            s.id !== activeChallengeId
+    );
+    const pastChallenges = summaries.filter(
+        (s) => s.youIn && (s.settled || s.endTime <= now)
+    );
     const [inviteCopied, setInviteCopied] = useState(false);
 
     // ---- kind-1 camera exercise ----
@@ -440,6 +545,9 @@ export function LeaderboardView({
         lastSessionReps.current = n;
         if (delta > 0) setTrackerReps((t) => t + delta);
     }, []);
+    // Your live local total (chain base + camera), fed by the ScoreCard so
+    // the race strip's "You" chip moves the instant a rep is counted.
+    const [liveTotal, setLiveTotal] = useState(0);
 
     const sorted = useMemo(
         () =>
@@ -502,6 +610,45 @@ export function LeaderboardView({
                         </button>
                     )}
                 </div>
+                {otherOngoing.length > 0 && (
+                    <div>
+                        <div
+                            className="caption"
+                            style={{ margin: "6px 0 8px" }}
+                        >
+                            Ongoing challenges
+                        </div>
+                        <div className="chal-stack">
+                            {otherOngoing.map((s) => (
+                                <ChallengeSummaryRow
+                                    key={s.id}
+                                    summary={s}
+                                    onOpen={(id) => setActiveChallengeId(id)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+                {pastChallenges.length > 0 && (
+                    <div>
+                        <div
+                            className="caption"
+                            style={{ margin: "6px 0 8px" }}
+                        >
+                            Past challenges
+                        </div>
+                        <div className="chal-stack">
+                            {pastChallenges.map((s) => (
+                                <ChallengeSummaryRow
+                                    key={s.id}
+                                    summary={s}
+                                    history
+                                    onOpen={(id) => setActiveChallengeId(id)}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
             </>
         );
     }
@@ -515,6 +662,30 @@ export function LeaderboardView({
 
     return (
         <>
+            {/* switcher: your other live challenges, one tap away */}
+            {otherOngoing.length > 0 && (
+                <div className="chal-switch" aria-label="Your challenges">
+                    <button
+                        type="button"
+                        className="chal-switch-chip chal-switch-chip--active"
+                    >
+                        {challenge.kind === 1 ? "🏋️" : "🚶"}{" "}
+                        {challenge.title.trim() || `#${challenge.id}`}
+                    </button>
+                    {otherOngoing.map((s) => (
+                        <button
+                            key={s.id}
+                            type="button"
+                            className="chal-switch-chip"
+                            onClick={() => setActiveChallengeId(s.id)}
+                        >
+                            {s.kind === 1 ? "🏋️" : "🚶"}{" "}
+                            {s.title.trim() || `#${s.id}`}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {/* countdown header */}
             <div style={{ textAlign: "center", paddingTop: 4 }}>
                 {/* durations range from a 15-min blitz to a 30-day marathon,
@@ -574,8 +745,10 @@ export function LeaderboardView({
                             offCaption={copy.cameraCaption}
                         />
                     </Suspense>
-                    {/* live rivals, visible without scrolling to standings */}
-                    <RaceStrip challenge={challenge} />
+                    {/* live race, visible without scrolling to standings —
+                        your chip counts camera reps instantly, rivals land
+                        via the 2s StepsSubmitted watcher */}
+                    <RaceStrip challenge={challenge} yourLive={liveTotal} />
                 </>
             )}
 
@@ -654,6 +827,7 @@ export function LeaderboardView({
                 <RepControls
                     challenge={challenge}
                     trackerReps={trackerReps}
+                    onTotalChange={setLiveTotal}
                 />
             ) : (
                 <StepControls challenge={challenge} />
@@ -667,6 +841,25 @@ export function LeaderboardView({
                 >
                     {txPending ? "Settling…" : "Settle challenge"}
                 </button>
+            )}
+
+            {/* history — finished challenges; tap → its results screen */}
+            {pastChallenges.length > 0 && (
+                <div>
+                    <div className="caption" style={{ margin: "6px 0 8px" }}>
+                        Past challenges
+                    </div>
+                    <div className="chal-stack">
+                        {pastChallenges.map((s) => (
+                            <ChallengeSummaryRow
+                                key={s.id}
+                                summary={s}
+                                history
+                                onOpen={(id) => setActiveChallengeId(id)}
+                            />
+                        ))}
+                    </div>
+                </div>
             )}
         </>
     );

@@ -3,7 +3,11 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ChallengeProvider } from "./context/ChallengeContext";
 import { WalletProvider } from "./context/WalletContext";
+import { applyTheme, loadTheme } from "./lib/theme";
 import "./index.css";
+
+// Apply the saved theme before the first paint so there's no flash of cream.
+applyTheme(loadTheme());
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>

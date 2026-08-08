@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChallengeSummaryRow } from "../components/ChallengeList";
 import { ProfileModal } from "../components/ProfileModal";
 import { Avatar, formatMon, WalletPill } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
 import { useWalletContext } from "../context/WalletContext";
+import { useMyChallenges } from "../hooks/useMyChallenges";
 import { copyForChallenge } from "../lib/kindCopy";
 import { loadProfile } from "../lib/profile";
 
@@ -349,6 +351,16 @@ export function JoinView({
         setActiveChallengeId,
     } = useChallengeContext();
 
+    // Every challenge this device created/joined — feeds the "Ongoing" list.
+    const { summaries, refresh: refreshMine } = useMyChallenges();
+    useEffect(() => {
+        refreshMine();
+    }, [activeChallengeId, refreshMine]);
+    const nowSec = Date.now() / 1000;
+    const ongoing = summaries.filter(
+        (s) => s.youIn && !s.settled && s.endTime > nowSec
+    );
+
     const [code, setCode] = useState("");
     const [linkCopied, setLinkCopied] = useState(false);
     // Once the visitor bails from an invite ("start your own"), stay bailed.
@@ -419,6 +431,39 @@ export function JoinView({
         if (demoMode || challengeNotFound) setActiveChallengeId(null);
         requireProfile(onStartChallenge);
     };
+
+    // The clear, always-available create CTA — the home screen's anchor.
+    const createCard = (
+        <div className="card card--lavender">
+            <div className="caption caption--ink">Create a challenge</div>
+            <div
+                style={{
+                    fontSize: 15,
+                    fontWeight: 600,
+                    opacity: 0.75,
+                    margin: "6px 0 14px",
+                }}
+            >
+                Steps or squats — set the stakes, pick a round, invite your
+                crew.
+            </div>
+            <button
+                className="pill-btn"
+                onClick={() => requireProfile(onStartChallenge)}
+                disabled={txPending || demoMode}
+            >
+                Start a challenge →
+            </button>
+            {demoMode && (
+                <div
+                    className="caption"
+                    style={{ marginTop: 10, textAlign: "center" }}
+                >
+                    Contract not deployed yet — transactions disabled
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <>
@@ -553,26 +598,9 @@ export function JoinView({
                         </div>
                     ) : hasActive &&
                       challenge.participants.some((p) => p.isYou) ? (
-                        /* already joined: never show a second "Stake & Join"
-                           (it would just revert "already joined" on-chain) */
-                        <div className="card card--lime">
-                            <div className="caption caption--ink">
-                                You're in
-                            </div>
-                            <div
-                                style={{
-                                    fontSize: 22,
-                                    fontWeight: 800,
-                                    margin: "6px 0 14px",
-                                }}
-                            >
-                                You've staked on “
-                                {challenge.title.trim() || `#${challenge.id}`}”
-                            </div>
-                            <div className="caption caption--ink">
-                                Head to the Leaderboard tab to see the race
-                            </div>
-                        </div>
+                        /* already joined: the challenge lives in "Ongoing"
+                           below — the CTA slot goes to creating the next one */
+                        createCard
                     ) : hasActive ? (
                         <div className="card card--lavender">
                             <div className="caption caption--ink">
@@ -616,42 +644,29 @@ export function JoinView({
                             </button>
                         </div>
                     ) : (
-                        <div className="card card--lavender">
-                            <div className="caption caption--ink">
-                                Get started
-                            </div>
+                        createCard
+                    )}
+
+                    {/* ongoing challenges — everything you're staked in */}
+                    {ongoing.length > 0 && (
+                        <div>
                             <div
-                                style={{
-                                    fontSize: 15,
-                                    fontWeight: 600,
-                                    opacity: 0.75,
-                                    margin: "6px 0 14px",
-                                }}
+                                className="caption"
+                                style={{ marginBottom: 8 }}
                             >
-                                Set the stakes, pick a duration, invite your
-                                crew.
+                                Ongoing challenges
                             </div>
-                            <button
-                                className="pill-btn"
-                                onClick={() =>
-                                    requireProfile(onStartChallenge)
-                                }
-                                disabled={txPending || demoMode}
-                            >
-                                Start a challenge →
-                            </button>
-                            {demoMode && (
-                                <div
-                                    className="caption"
-                                    style={{
-                                        marginTop: 10,
-                                        textAlign: "center",
-                                    }}
-                                >
-                                    Contract not deployed yet — transactions
-                                    disabled
-                                </div>
-                            )}
+                            <div className="chal-stack">
+                                {ongoing.map((s) => (
+                                    <ChallengeSummaryRow
+                                        key={s.id}
+                                        summary={s}
+                                        onOpen={(id) =>
+                                            setActiveChallengeId(id)
+                                        }
+                                    />
+                                ))}
+                            </div>
                         </div>
                     )}
 

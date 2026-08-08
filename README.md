@@ -6,21 +6,32 @@ A social fitness game on [Monad](https://monad.xyz) testnet, built at Monad Blit
 
 **Live app:** https://walk-the-walk-production.up.railway.app
 
+## Try it in 30 seconds
+
+Open the live app, tap **Log in**, and use the shared demo account (pre-funded with testnet MON):
+
+| | |
+|---|---|
+| Email | `demo@walkthewalk.xyz` |
+| Password | `misty-heron` |
+
+Logging in with these credentials derives the demo wallet on any device — or tap **Create account** to mint your own wallet (the faucet auto-funds new ones with 0.15 MON). Note the demo account is shared: anyone reading this README controls the same wallet, so don't leave real challenges running on it.
+
 ---
 
 ## How it works
 
 1. **Create an account** — a wallet is derived in your browser from your email + a generated password. No extension, no seed phrase, no server-side keys. A faucet auto-drips 0.15 MON so you can play immediately.
-2. **Start a challenge** — pick steps or reps (squats/jumping jacks via your camera), a stake, and a duration (15-minute blitz up to a 30-day marathon). You get an invite link.
+2. **Start a challenge** — pick steps or reps (squats/jumping jacks via your camera), a stake, and a format: step challenges run from a day to a month; camera rep races are live rounds — a 1-minute Minute Madness, the 3-minute Showdown, or 15-minute Endurance. You get an invite link, and you can run several challenges at once — the home screen lists everything ongoing, and the leaderboard keeps a tap-through history of finished ones.
 3. **Friends tap the link** — they stake the same amount and they're in.
-4. **Move** — phone motion tracking counts steps; the camera + on-device pose detection (MediaPipe) counts reps. Scores auto-sync on-chain and every phone's leaderboard updates live.
+4. **Move** — phone motion tracking counts steps; the camera + on-device pose detection (MediaPipe) counts reps. Your count moves the instant a rep is seen, rivals' counts stream in live under the camera, and scores auto-sync on-chain (every 5s in short rounds).
 5. **Timer ends** — the app settles the challenge on-chain and pushes winnings straight to the winners' wallets. Confetti included.
 
 ## Repo layout
 
 | Directory | What it is |
 |---|---|
-| [`web/`](web/) | The live PWA — Vite + React 18 + viem. In-browser wallet, camera rep counter, iOS-style tab bar. |
+| [`web/`](web/) | The live PWA — Vite + React 18 + viem. In-browser wallet, camera rep counter, iOS-style tab bar, three UI themes (Cream / Midnight / Sorbet, in the Wallet tab). |
 | [`contracts/`](contracts/) | Foundry project — [`WalkPool.sol`](contracts/src/WalkPool.sol), the staking/settlement contract. |
 | [`faucet/`](faucet/) | Tiny Express service that drips 0.15 MON to brand-new (zero-balance) wallets. |
 | [`app/`](app/) | Expo/React Native mobile client (Privy auth) — earlier prototype of the same game. |

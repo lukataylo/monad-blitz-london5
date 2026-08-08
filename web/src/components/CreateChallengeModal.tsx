@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { parseEther } from "viem";
 import { useChallengeContext } from "../context/ChallengeContext";
+import { useWalletContext } from "../context/WalletContext";
 import {
     saveExerciseChoice,
     type StoredExercise,
@@ -97,18 +98,44 @@ const PACES = [
 
 type PaceKey = (typeof PACES)[number]["key"];
 
-// Wizard step lists — reps challenges are Blitz-only, so no pace step.
+// Rep challenges are a live camera race — their paces are minutes, not days.
+// 3 minutes is the headline format (hackathon demo length); 1 minute is the
+// all-out burner; 15 minutes is the endurance version.
+const REP_PACES = [
+    {
+        key: "rep3",
+        emoji: "🔥",
+        name: "Showdown",
+        durationLabel: "3 minutes",
+        secs: 3 * 60,
+        note: "The demo format — all killer",
+    },
+    {
+        key: "rep1",
+        emoji: "💥",
+        name: "Minute Madness",
+        durationLabel: "1 minute",
+        secs: 60,
+        note: "Empty the tank",
+    },
+    {
+        key: "rep15",
+        emoji: "⚡",
+        name: "Endurance",
+        durationLabel: "15 minutes",
+        secs: 15 * 60,
+        note: "Pace yourself",
+    },
+] as const;
+
+type RepPaceKey = (typeof REP_PACES)[number]["key"];
+const REP_MAX_SECS = 15 * 60;
+
 type StepName = "kind" | "name" | "pace" | "stakes" | "review";
 const STEPS_WITH_PACE: readonly StepName[] = [
     "kind",
     "name",
     "pace",
-    "stakes",
-    "review",
-];
-const STEPS_BLITZ_ONLY: readonly StepName[] = [
-    "kind",
-    "name",
     "stakes",
     "review",
 ];
@@ -145,13 +172,22 @@ function friendlyError(msg: string): string {
     return msg.length > 180 ? `${msg.slice(0, 180)}…` : msg;
 }
 
+// The create tx costs its full 400k gas LIMIT on Monad (~0.041 MON) on top
+// of the stake — without this headroom a freshly dripped wallet (0.15 MON)
+// could fire a doomed "insufficient funds" create.
+const CREATE_GAS_HEADROOM_WEI = 45_000_000_000_000_000n; // 0.045 MON
+
 export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
     const { createChallenge, txPending, error } = useChallengeContext();
+    const { balance } = useWalletContext();
 
     const [step, setStep] = useState(1);
     const [title, setTitle] = useState("");
     const [kindKey, setKindKey] = useState<KindKey>("steps");
     const [paceKey, setPaceKey] = useState<PaceKey>("classic");
+    // Rep race length — separate state so switching kind back and forth
+    // never leaks a 1-week pace into a camera race (or vice versa).
+    const [repPaceKey, setRepPaceKey] = useState<RepPaceKey>("rep3");
     const [stakeStr, setStakeStr] = useState("0.1");
     const [liveId, setLiveId] = useState<number | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
@@ -159,12 +195,13 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
     const [submitFailed, setSubmitFailed] = useState(false);
 
     const kindDef = KINDS.find((k) => k.key === kindKey) ?? KINDS[0];
-    // Reps happen live in front of the camera — pace is locked to Blitz (900s).
+    // Reps happen live in front of the camera — minutes-long formats, with
+    // the 3-minute Showdown as the default (hackathon demo length).
     const isReps = kindDef.kind === 1;
     const pace = isReps
-        ? PACES[0]
+        ? (REP_PACES.find((p) => p.key === repPaceKey) ?? REP_PACES[0])
         : (PACES.find((p) => p.key === paceKey) ?? PACES[2]);
-    const stepList = isReps ? STEPS_BLITZ_ONLY : STEPS_WITH_PACE;
+    const stepList = STEPS_WITH_PACE;
     const stepName: StepName = stepList[Math.min(step, stepList.length) - 1];
     const copy = getKindCopy(
         kindDef.kind,
@@ -178,6 +215,20 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
         stakeStr.trim() !== "" &&
         Number.isFinite(stakeNum) &&
         stakeNum >= MIN_STAKE_MON;
+
+    // First-run race: the faucet drip may still be mining while the user
+    // walks the wizard. Gate the launch on balance — the 10s balance poll
+    // unlocks it the moment funds land, instead of letting a doomed
+    // "insufficient funds" create fire.
+    let stakeWeiPreview: bigint | null = null;
+    try {
+        if (stakeOk) stakeWeiPreview = parseEther(stakeStr.trim());
+    } catch {
+        stakeWeiPreview = null;
+    }
+    const awaitingFunds =
+        stakeWeiPreview != null &&
+        balance < stakeWeiPreview + CREATE_GAS_HEADROOM_WEI;
 
     const profileNameLabel = loadProfile()?.name.trim() || "—";
 
@@ -199,10 +250,10 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
             return;
         }
         setSubmitFailed(false);
-        // Defensive clamp: rep challenges are always Blitz. `pace` already
-        // derives to Blitz when kind === 1, but never let a stale long pace
-        // leak into a camera challenge even if that derivation changes.
-        const durationSec = kindDef.kind === 1 ? 900 : pace.secs;
+        // Defensive clamp: a camera race is minutes, never days — even if the
+        // pace derivation ever regresses, cap rep challenges at 15 minutes.
+        const durationSec =
+            kindDef.kind === 1 ? Math.min(pace.secs, REP_MAX_SECS) : pace.secs;
         const id = await createChallenge(
             stakeWei,
             durationSec,
@@ -442,40 +493,54 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                     </div>
                 )}
 
-                {/* STEP — pace (steps challenges only; reps are Blitz-only) */}
+                {/* STEP — pace (day/week paces for steps, minute rounds for
+                    camera rep races — 3-min Showdown is the default) */}
                 {stepName === "pace" && (
                     <div className="wiz-step" key="s3">
-                        <div className="modal-title">Pick the pace</div>
+                        <div className="modal-title">
+                            {isReps ? "Pick the round" : "Pick the pace"}
+                        </div>
                         <div className="pace-grid">
-                            {PACES.map((p) => (
-                                <button
-                                    key={p.key}
-                                    className={`pace-card${
-                                        p.key === paceKey
-                                            ? " pace-card--active"
-                                            : ""
-                                    }`}
-                                    onClick={() => setPaceKey(p.key)}
-                                >
-                                    <span className="pace-emoji">
-                                        {p.emoji}
-                                    </span>
-                                    <span className="pace-name">
-                                        {p.name}
-                                    </span>
-                                    <span className="pace-dur">
-                                        {p.durationLabel}
-                                    </span>
-                                    {p.note && (
-                                        <span className="pace-note">
-                                            {p.note}
+                            {(isReps ? REP_PACES : PACES).map((p) => {
+                                const active = isReps
+                                    ? p.key === repPaceKey
+                                    : p.key === paceKey;
+                                return (
+                                    <button
+                                        key={p.key}
+                                        className={`pace-card${
+                                            active ? " pace-card--active" : ""
+                                        }`}
+                                        onClick={() =>
+                                            isReps
+                                                ? setRepPaceKey(
+                                                      p.key as RepPaceKey
+                                                  )
+                                                : setPaceKey(p.key as PaceKey)
+                                        }
+                                    >
+                                        <span className="pace-emoji">
+                                            {p.emoji}
                                         </span>
-                                    )}
-                                    <span className="pace-ends">
-                                        Ends {formatEndDate(p.secs)}
-                                    </span>
-                                </button>
-                            ))}
+                                        <span className="pace-name">
+                                            {p.name}
+                                        </span>
+                                        <span className="pace-dur">
+                                            {p.durationLabel}
+                                        </span>
+                                        {p.note && (
+                                            <span className="pace-note">
+                                                {p.note}
+                                            </span>
+                                        )}
+                                        <span className="pace-ends">
+                                            {isReps
+                                                ? "Starts the moment you create it"
+                                                : `Ends ${formatEndDate(p.secs)}`}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                         <button
                             className="pill-btn"
@@ -565,11 +630,11 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                                 </span>
                             </div>
                             <div className="review-row">
-                                <span className="review-label">Pace</span>
+                                <span className="review-label">
+                                    {isReps ? "Round" : "Pace"}
+                                </span>
                                 <span className="review-value">
-                                    {isReps
-                                        ? "⚡ Blitz · 15 minutes"
-                                        : `${pace.emoji} ${pace.name} · ${pace.durationLabel}`}
+                                    {`${pace.emoji} ${pace.name} · ${pace.durationLabel}`}
                                 </span>
                             </div>
                             <div className="review-row">
@@ -598,15 +663,28 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
                                 {friendlyError(error)}
                             </div>
                         )}
+                        {awaitingFunds && (
+                            <div className="summary-line">
+                                Waiting for your wallet top-up — you need ~
+                                {formatMonNumber(stakeNum + 0.045)} MON
+                                (stake + gas). This unlocks automatically
+                                when the faucet drip lands.
+                            </div>
+                        )}
                         <button
                             className="pill-btn"
                             onClick={create}
-                            disabled={txPending}
+                            disabled={txPending || awaitingFunds}
                         >
                             {txPending ? (
                                 <>
                                     <span className="spinner" />
                                     Confirming…
+                                </>
+                            ) : awaitingFunds ? (
+                                <>
+                                    <span className="spinner" />
+                                    Topping up your wallet…
                                 </>
                             ) : (
                                 `Create & stake ${formatMonNumber(stakeNum)} MON →`

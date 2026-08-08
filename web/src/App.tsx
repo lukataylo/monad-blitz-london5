@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CreateChallengeModal } from "./components/CreateChallengeModal";
 import { TabBar } from "./components/TabBar";
 import { useChallengeContext } from "./context/ChallengeContext";
@@ -40,13 +40,23 @@ export default function App() {
 
     // Auto-switch: no active id or not joined -> Join; joined & running ->
     // Leaderboard; ended or settled -> Results (which auto-settles/claims).
-    // Manual nav can override.
-    const autoView: View =
-        activeChallengeId == null || challenge == null || !joined
-            ? "join"
-            : challenge.settled || ended
-              ? "results"
-              : "board";
+    // Manual nav can override. While a newly selected challenge is still
+    // loading (id set, data not yet fetched) HOLD the previous view — e.g.
+    // tapping a history row must not flash Join before Results appears.
+    const stableViewRef = useRef<View>("join");
+    let autoView: View;
+    if (activeChallengeId == null) {
+        autoView = "join";
+    } else if (challenge == null) {
+        autoView = stableViewRef.current;
+    } else if (!joined) {
+        autoView = "join";
+    } else if (challenge.settled || ended) {
+        autoView = "results";
+    } else {
+        autoView = "board";
+    }
+    stableViewRef.current = autoView;
     const view = override ?? autoView;
 
     // A state transition (join confirmed, challenge settled, run it back)

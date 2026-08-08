@@ -2,6 +2,13 @@ import { useRef, useState } from "react";
 import { formatEther } from "viem";
 import { useWalletContext, WALLET_KEY } from "../context/WalletContext";
 import { loadProfile } from "../lib/profile";
+import {
+    applyTheme,
+    loadTheme,
+    saveTheme,
+    THEMES,
+    type ThemeId,
+} from "../lib/theme";
 import { requestDrip } from "../onboarding/deriveWallet";
 
 // Mirrors PROFILE_KEY in src/lib/profile.ts (not exported there).
@@ -27,6 +34,13 @@ export function WalletView() {
     const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [dripStatus, setDripStatus] = useState<DripStatus>("idle");
     const [confirmLogout, setConfirmLogout] = useState(false);
+    const [theme, setTheme] = useState<ThemeId>(loadTheme);
+
+    const handleTheme = (id: ThemeId) => {
+        applyTheme(id);
+        saveTheme(id);
+        setTheme(id);
+    };
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -107,7 +121,18 @@ export function WalletView() {
 
             <div className="card">
                 <div className="caption">Address</div>
-                <div className="wallet-address">{address ?? "—"}</div>
+                {/* 42 chars never fit one line on a phone — split into two
+                    balanced halves instead of wrapping with 1–2 orphan chars */}
+                <div className="wallet-address">
+                    {address ? (
+                        <>
+                            <span>{address.slice(0, 21)}</span>
+                            <span>{address.slice(21)}</span>
+                        </>
+                    ) : (
+                        "—"
+                    )}
+                </div>
                 <button
                     className="pill-btn"
                     style={{ marginTop: 14 }}
@@ -170,6 +195,37 @@ export function WalletView() {
                         the organizer.
                     </div>
                 )}
+            </div>
+
+            <div className="card">
+                <div className="caption">Appearance</div>
+                <div className="theme-row">
+                    {THEMES.map((t) => (
+                        <button
+                            key={t.id}
+                            type="button"
+                            className={`theme-chip${
+                                theme === t.id ? " theme-chip--active" : ""
+                            }`}
+                            onClick={() => handleTheme(t.id)}
+                            aria-pressed={theme === t.id}
+                        >
+                            <span className="theme-chip-emoji" aria-hidden="true">
+                                {t.emoji}
+                            </span>
+                            <span>{t.name}</span>
+                            <span className="theme-chip-dots" aria-hidden="true">
+                                {t.swatch.map((c) => (
+                                    <span
+                                        key={c}
+                                        className="theme-chip-dot"
+                                        style={{ background: c }}
+                                    />
+                                ))}
+                            </span>
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div className="card">

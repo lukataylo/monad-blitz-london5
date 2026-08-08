@@ -93,7 +93,15 @@ export function OnboardingModal({
             setDripStatus("pending");
             requestDrip(address).then((ok) => {
                 setDripStatus(ok ? "done" : "idle");
-                if (ok) refreshBalance();
+                // The drip tx needs a few seconds to mine — retry the balance
+                // read so the app sees the funds well before the 10s poll
+                // (first create/join is gated on balance).
+                if (ok) {
+                    refreshBalance();
+                    for (const ms of [2500, 6000, 12000]) {
+                        setTimeout(() => refreshBalance(), ms);
+                    }
+                }
             });
         }
         setStep("reveal");

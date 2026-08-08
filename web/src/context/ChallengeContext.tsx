@@ -10,6 +10,7 @@ import { parseEventLogs } from "viem";
 import { useWalletContext } from "./WalletContext";
 import { walkPoolAbi } from "../lib/abi";
 import { isContractConfigured, WALKPOOL_ADDRESS } from "../lib/chain";
+import { recordMyChallenge } from "../lib/myChallenges";
 import { loadProfile, MAX_NAME_LENGTH } from "../lib/profile";
 import type { Challenge, Participant } from "../lib/types";
 
@@ -227,6 +228,10 @@ export function ChallengeProvider({
                         isYou,
                     };
                 });
+                // Backfill the device-local "my challenges" registry: any
+                // challenge that turns out to include this wallet belongs in
+                // the home screen's Ongoing list and the history.
+                if (participants.some((p) => p.isYou)) recordMyChallenge(id);
                 if (!stillActive()) return;
                 setChallenge({
                     id,
@@ -378,6 +383,7 @@ export function ChallengeProvider({
                     return null;
                 }
                 const id = Number(created.args.id);
+                recordMyChallenge(id);
                 setActiveChallengeId(id);
                 await Promise.all([fetchChallenge(id), refreshBalance()]);
                 return id;
@@ -434,6 +440,7 @@ export function ChallengeProvider({
                     if (/already joined/i.test(msg)) {
                         // You're in this challenge from another tab/device —
                         // just make it active.
+                        recordMyChallenge(id);
                         setActiveChallengeId(id);
                         await Promise.all([
                             fetchChallenge(id),
@@ -456,6 +463,7 @@ export function ChallengeProvider({
                     gas: GAS_WRITE,
                 });
                 await publicClient.waitForTransactionReceipt({ hash });
+                recordMyChallenge(id);
                 setActiveChallengeId(id);
                 await Promise.all([fetchChallenge(id), refreshBalance()]);
             } catch (e) {

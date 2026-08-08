@@ -165,10 +165,6 @@ export default function JoinRoute() {
     );
 
     const onJoin = useCallback(async () => {
-        if (demoMode) {
-            router.push("/leaderboard");
-            return;
-        }
         const action: PendingAction =
             activeChallengeId !== null && challenge && !hasJoined
                 ? "join"
@@ -186,7 +182,6 @@ export default function JoinRoute() {
         }
         await runAction(action);
     }, [
-        demoMode,
         activeChallengeId,
         challenge,
         hasJoined,
@@ -246,7 +241,7 @@ export default function JoinRoute() {
     return (
         <>
             <JoinScreen
-                challenge={challenge ?? undefined}
+                challenge={challenge}
                 hasJoined={hasJoined}
                 joining={txPending}
                 onJoin={onJoin}

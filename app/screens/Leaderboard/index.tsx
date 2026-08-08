@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { formatEther } from "viem";
 
-import { MOCK_CHALLENGE } from "@/lib/mock";
 import { theme } from "@/lib/theme";
 import { Challenge, Participant } from "@/lib/types";
 import LeaderboardRow from "./LeaderboardRow";
@@ -69,12 +68,12 @@ function computeSafety(sorted: Participant[]): SafetyInfo | null {
 }
 
 export default function LeaderboardScreen({
-  challenge = MOCK_CHALLENGE,
+  challenge = null,
   onSettle = () => {},
   settling = false,
   onTabPress,
 }: {
-  challenge?: Challenge;
+  challenge?: Challenge | null;
   onSettle?: () => void;
   settling?: boolean;
   onTabPress?: (tab: string) => void;
@@ -88,6 +87,35 @@ export default function LeaderboardScreen({
     return () => clearInterval(id);
   }, []);
 
+  const participants = challenge?.participants;
+  const sorted = useMemo(
+    () => (participants ? [...participants].sort((a, b) => b.steps - a.steps) : []),
+    [participants],
+  );
+  const safety = useMemo(() => computeSafety(sorted), [sorted]);
+
+  if (!challenge) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.content}>
+          <View style={styles.topBar}>
+            <Pressable style={styles.circleButton} onPress={() => onTabPress?.("back")}>
+              <Ionicons name="chevron-back" size={22} color={theme.colors.ink} />
+            </Pressable>
+            <View />
+            <View style={{ width: 44 }} />
+          </View>
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyEmoji}>👟</Text>
+            <Text style={styles.emptyTitle}>No challenge yet</Text>
+            <Text style={styles.emptyCaption}>Start one from Home</Text>
+          </View>
+        </View>
+        <TabBar onTabPress={onTabPress} />
+      </SafeAreaView>
+    );
+  }
+
   const secondsLeft = Math.max(0, challenge.endTime - nowSec);
   const startTime = challenge.endTime - CHALLENGE_DAYS * DAY_SECONDS;
   const dayNumber = clamp(
@@ -96,13 +124,7 @@ export default function LeaderboardScreen({
     CHALLENGE_DAYS,
   );
   const showSettle = secondsLeft === 0 && !challenge.settled;
-
-  const sorted = useMemo(
-    () => [...challenge.participants].sort((a, b) => b.steps - a.steps),
-    [challenge.participants],
-  );
   const maxSteps = sorted.length > 0 ? sorted[0].steps : 0;
-  const safety = useMemo(() => computeSafety(sorted), [sorted]);
 
   const potLabel = Number(formatEther(challenge.pot)).toLocaleString(undefined, {
     maximumFractionDigits: 2,
@@ -179,6 +201,19 @@ export default function LeaderboardScreen({
             />
           ))}
         </View>
+
+        {/* Waiting-for-crew card (solo so far) */}
+        {challenge.participants.length === 1 ? (
+          <View style={styles.waitingCard}>
+            <View style={styles.safetyBadge}>
+              <Ionicons name="people-outline" size={24} color={theme.colors.ink} />
+            </View>
+            <View style={styles.safetyBody}>
+              <Text style={styles.safetyTitle}>Waiting for your crew</Text>
+              <Text style={styles.waitingCaption}>Share the invite link</Text>
+            </View>
+          </View>
+        ) : null}
 
         {/* Safety card */}
         {safety ? (
@@ -328,6 +363,45 @@ const styles = StyleSheet.create({
   },
   list: {
     marginBottom: 20,
+  },
+  emptyCard: {
+    marginTop: 40,
+    backgroundColor: theme.colors.white,
+    borderRadius: theme.radius.card,
+    borderWidth: 1,
+    borderColor: "rgba(17,17,17,0.06)",
+    padding: 32,
+    alignItems: "center",
+  },
+  emptyEmoji: {
+    fontSize: 40,
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontFamily: theme.font.heavy,
+    fontSize: 22,
+    color: theme.colors.ink,
+  },
+  emptyCaption: {
+    fontFamily: theme.font.medium,
+    fontSize: 15,
+    color: theme.colors.muted,
+    marginTop: 4,
+  },
+  waitingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: theme.colors.lavender,
+    borderRadius: theme.radius.card,
+    padding: 20,
+    marginBottom: 20,
+  },
+  waitingCaption: {
+    fontFamily: theme.font.medium,
+    fontSize: 15,
+    color: theme.colors.ink,
+    opacity: 0.7,
+    marginTop: 2,
   },
   safetyCard: {
     flexDirection: "row",

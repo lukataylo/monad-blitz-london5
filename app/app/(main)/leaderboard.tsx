@@ -61,7 +61,7 @@ export default function LeaderboardRoute() {
 
     return (
         <LeaderboardScreen
-            challenge={challenge ?? undefined}
+            challenge={challenge}
             onSettle={() => settle()}
             settling={txPending}
             onTabPress={onTabPress}

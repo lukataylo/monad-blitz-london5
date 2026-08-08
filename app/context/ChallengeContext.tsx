@@ -1,6 +1,5 @@
 import { walkPoolAbi } from "@/lib/abi";
 import { isContractConfigured, WALKPOOL_ADDRESS } from "@/lib/chain";
-import { MOCK_CHALLENGE } from "@/lib/mock";
 import { Challenge, Participant } from "@/lib/types";
 import { useWalletContext } from "@/context/WalletContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -37,7 +36,7 @@ interface ChallengeContextType {
     loading: boolean;
     error: string | null;
     txPending: boolean;
-    /** true when the contract address is not configured — serves mock data */
+    /** true when the contract address is not configured — challenge stays null, actions no-op */
     demoMode: boolean;
     /** local signup identity, persisted in AsyncStorage; null until signup */
     profile: Profile | null;
@@ -221,7 +220,7 @@ export function ChallengeProvider({
             return;
         }
         if (demoMode) {
-            setChallenge(MOCK_CHALLENGE);
+            // Contract not configured — no chain to read from, challenge stays null.
             return;
         }
         if (!publicClient) return;
@@ -252,8 +251,7 @@ export function ChallengeProvider({
         ): Promise<number | null> => {
             if (demoMode) {
                 console.warn("[demo] createChallenge — contract not configured");
-                setActiveChallengeId(MOCK_CHALLENGE.id);
-                return MOCK_CHALLENGE.id;
+                return null;
             }
             if (!walletClient || !publicClient) return null;
             setTxPending(true);
@@ -313,7 +311,6 @@ export function ChallengeProvider({
         async (id: number) => {
             if (demoMode) {
                 console.warn("[demo] join — contract not configured");
-                setActiveChallengeId(MOCK_CHALLENGE.id);
                 return;
             }
             if (!walletClient || !publicClient) return;

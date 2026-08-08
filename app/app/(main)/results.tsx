@@ -25,7 +25,7 @@ export default function ResultsRoute() {
 
     return (
         <ResultsScreen
-            challenge={challenge?.settled ? challenge : undefined}
+            challenge={challenge}
             onClaim={onClaim}
             claiming={txPending}
             claimed={claimed}

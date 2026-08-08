@@ -1,7 +1,7 @@
 // Screen 1 — Join: hero pot, chips, avatars, stake & join CTA, invite card.
-// Presentational: all props optional, renders standalone off MOCK_CHALLENGE.
+// Presentational. Three modes: empty (no challenge), invitation (challenge
+// exists but you haven't joined), and joined.
 import Avatar from "@/components/ui/Avatar";
-import { MOCK_CHALLENGE } from "@/lib/mock";
 import { theme } from "@/lib/theme";
 import { Challenge } from "@/lib/types";
 import { Feather, Ionicons } from "@expo/vector-icons";
@@ -20,7 +20,7 @@ import * as Clipboard from "expo-clipboard";
 import { formatEther } from "viem";
 
 type JoinScreenProps = {
-    challenge?: Challenge;
+    challenge?: Challenge | null;
     hasJoined?: boolean;
     joining?: boolean;
     onJoin?: () => void;
@@ -41,6 +41,17 @@ function shortAddress(addr: string): string {
     return `${addr.slice(0, 4)}…${addr.slice(-2)}`;
 }
 
+function formatTimeLeft(endTime: number): string {
+    const s = endTime - Math.floor(Date.now() / 1000);
+    if (s <= 0) return "Ended";
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    if (d > 0) return `${d}d ${h}h left`;
+    const m = Math.floor((s % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m left`;
+    return `${m}m left`;
+}
+
 function CircleButton({ children }: { children: React.ReactNode }) {
     return (
         <Pressable style={({ pressed }) => [styles.circleBtn, pressed && styles.pressed]}>
@@ -59,11 +70,11 @@ function Chip({ icon, label }: { icon: React.ReactNode; label: string }) {
 }
 
 export default function JoinScreen({
-    challenge = MOCK_CHALLENGE,
+    challenge = null,
     hasJoined = false,
     joining = false,
     onJoin = () => {},
-    inviteUrl = "walkthewalk.mon/10k",
+    inviteUrl = "walk-the-walk-production.up.railway.app",
     walletAddress = null,
     walletBalance,
     onCopyAddress = () => {},
@@ -79,9 +90,15 @@ export default function JoinScreen({
         };
     }, []);
 
-    const stakeMon = formatMon(challenge.stake);
-    const potMon = formatMon(challenge.pot);
-    const friendCount = challenge.participants.length;
+    const isInvite = challenge !== null && !hasJoined;
+    const stakeMon = challenge ? formatMon(challenge.stake) : "—";
+    const potMon = challenge ? formatMon(challenge.pot) : "—";
+    const friendCount = challenge?.participants.length ?? 0;
+    const insufficientBalance =
+        isInvite &&
+        challenge !== null &&
+        walletBalance !== undefined &&
+        walletBalance < challenge.stake;
 
     const handleCopyLink = async () => {
         await Clipboard.setStringAsync(inviteUrl);
@@ -145,82 +162,183 @@ export default function JoinScreen({
                 {/* Hero card */}
                 <View style={styles.hero}>
                     <Text style={styles.heroLabel}>
-                        {(challenge.title || "10K Club").toUpperCase()}
+                        {isInvite
+                            ? "YOU'RE INVITED 🎉"
+                            : challenge
+                              ? challenge.title.toUpperCase()
+                              : "WALK THE WALK"}
                     </Text>
-                    <View style={styles.potRow}>
-                        <Text style={styles.potNumber}>{potMon}</Text>
-                        <Text style={styles.potUnit}> MON</Text>
-                    </View>
-                    <Text style={styles.heroTagline}>Walk more.{"\n"}Win together.</Text>
+                    {isInvite && challenge ? (
+                        <Text style={styles.heroTitle}>{challenge.title}</Text>
+                    ) : challenge ? (
+                        <View style={styles.potRow}>
+                            <Text style={styles.potNumber}>{potMon}</Text>
+                            <Text style={styles.potUnit}> MON</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.potRow}>
+                            <Text style={styles.potNumber}>—</Text>
+                        </View>
+                    )}
+                    {!isInvite && (
+                        <Text style={styles.heroTagline}>
+                            Walk more.{"\n"}Win together.
+                        </Text>
+                    )}
                     <View style={styles.shoeSticker}>
                         <Text style={styles.shoeEmoji}>👟</Text>
                     </View>
                 </View>
 
                 {/* Chips row */}
-                <View style={styles.chipsRow}>
-                    <Chip
-                        icon={<Ionicons name="calendar-outline" size={18} color={theme.colors.ink} />}
-                        label="7 days"
-                    />
-                    <Chip
-                        icon={<Ionicons name="people-outline" size={18} color={theme.colors.ink} />}
-                        label={`${friendCount} friends`}
-                    />
-                    <Chip
-                        icon={<Feather name="arrow-down" size={18} color={theme.colors.ink} />}
-                        label="Bottom walker loses"
-                    />
-                </View>
-
-                {/* Avatar row */}
-                <View style={styles.avatarRow}>
-                    {challenge.participants.map((p, i) => (
-                        <Avatar
-                            key={p.address}
-                            seed={p.address}
-                            label={p.name}
-                            size={44}
-                            style={{
-                                ...styles.avatar,
-                                marginLeft: i === 0 ? 0 : -10,
-                                zIndex: challenge.participants.length - i,
-                            }}
+                {challenge === null ? (
+                    <View style={styles.chipsRow}>
+                        <Chip
+                            icon={<Ionicons name="trophy-outline" size={18} color={theme.colors.ink} />}
+                            label="Winner takes 70%"
                         />
-                    ))}
-                    <View style={styles.addCircle}>
-                        <Text style={styles.addPlus}>+</Text>
+                        <Chip
+                            icon={<Ionicons name="medal-outline" size={18} color={theme.colors.ink} />}
+                            label="Runner-up 30%"
+                        />
+                        <Chip
+                            icon={<Feather name="arrow-down" size={18} color={theme.colors.ink} />}
+                            label="Bottom walker loses"
+                        />
                     </View>
-                </View>
+                ) : isInvite ? (
+                    <View style={styles.chipsRow}>
+                        <Chip
+                            icon={<Ionicons name="cash-outline" size={18} color={theme.colors.ink} />}
+                            label={`${stakeMon} MON to join`}
+                        />
+                        <Chip
+                            icon={<Ionicons name="time-outline" size={18} color={theme.colors.ink} />}
+                            label={formatTimeLeft(challenge.endTime)}
+                        />
+                        <Chip
+                            icon={<Ionicons name="people-outline" size={18} color={theme.colors.ink} />}
+                            label={`${friendCount} walking so far`}
+                        />
+                    </View>
+                ) : (
+                    <View style={styles.chipsRow}>
+                        <Chip
+                            icon={<Ionicons name="calendar-outline" size={18} color={theme.colors.ink} />}
+                            label="7 days"
+                        />
+                        <Chip
+                            icon={<Ionicons name="people-outline" size={18} color={theme.colors.ink} />}
+                            label={`${friendCount} friends`}
+                        />
+                        <Chip
+                            icon={<Feather name="arrow-down" size={18} color={theme.colors.ink} />}
+                            label="Bottom walker loses"
+                        />
+                    </View>
+                )}
+
+                {/* Avatar row — only when there are real participants */}
+                {challenge !== null && challenge.participants.length > 0 && (
+                    <View>
+                        <View style={styles.avatarRow}>
+                            {challenge.participants.map((p, i) => (
+                                <Avatar
+                                    key={p.address}
+                                    seed={p.address}
+                                    label={p.name}
+                                    size={44}
+                                    style={{
+                                        ...styles.avatar,
+                                        marginLeft: i === 0 ? 0 : -10,
+                                        zIndex: challenge.participants.length - i,
+                                    }}
+                                />
+                            ))}
+                            <View style={styles.addCircle}>
+                                <Text style={styles.addPlus}>+</Text>
+                            </View>
+                        </View>
+                        {isInvite && (
+                            <Text style={styles.avatarNames} numberOfLines={2}>
+                                {challenge.participants.map((p) => p.name).join(", ")}
+                            </Text>
+                        )}
+                    </View>
+                )}
 
                 {/* Stake card */}
                 <View style={styles.stakeCard}>
-                    <Text style={styles.stakeLabel}>YOUR STAKE</Text>
-                    <View style={styles.stakeRow}>
-                        <Text style={styles.stakeAmount}>{stakeMon}</Text>
-                        <Text style={styles.stakeUnit}> MON</Text>
-                    </View>
-                    <Pressable
-                        onPress={onJoin}
-                        disabled={joining || hasJoined}
-                        style={({ pressed }) => [
-                            styles.joinBtn,
-                            hasJoined && styles.joinBtnDone,
-                            pressed && !hasJoined && !joining && styles.pressed,
-                        ]}
-                    >
-                        {joining ? (
-                            <ActivityIndicator color={theme.colors.white} />
-                        ) : (
-                            <Text style={styles.joinBtnText}>
-                                {hasJoined ? "You're in ✓" : "Stake & Join →"}
+                    {challenge !== null && (
+                        <>
+                            <Text style={styles.stakeLabel}>
+                                {isInvite ? "STAKE TO JOIN" : "YOUR STAKE"}
                             </Text>
-                        )}
-                    </Pressable>
+                            <View style={styles.stakeRow}>
+                                <Text style={styles.stakeAmount}>{stakeMon}</Text>
+                                <Text style={styles.stakeUnit}> MON</Text>
+                            </View>
+                        </>
+                    )}
+                    {insufficientBalance ? (
+                        <View style={styles.notice}>
+                            <Text style={styles.noticeTitle}>
+                                You need {stakeMon} MON to join
+                            </Text>
+                            {walletAddress && (
+                                <Pressable
+                                    onPress={handleCopyAddress}
+                                    style={({ pressed }) => [
+                                        styles.noticeAddress,
+                                        pressed && styles.pressed,
+                                    ]}
+                                >
+                                    <Text
+                                        style={styles.noticeAddressText}
+                                        numberOfLines={1}
+                                        ellipsizeMode="middle"
+                                    >
+                                        {addressCopied ? "Copied ✓" : walletAddress}
+                                    </Text>
+                                    <Feather
+                                        name={addressCopied ? "check" : "copy"}
+                                        size={14}
+                                        color={theme.colors.ink}
+                                    />
+                                </Pressable>
+                            )}
+                            <Text style={styles.noticeCaption}>
+                                Get free testnet MON at testnet.monad.xyz
+                            </Text>
+                        </View>
+                    ) : (
+                        <Pressable
+                            onPress={onJoin}
+                            disabled={joining || hasJoined}
+                            style={({ pressed }) => [
+                                styles.joinBtn,
+                                hasJoined && styles.joinBtnDone,
+                                pressed && !hasJoined && !joining && styles.pressed,
+                            ]}
+                        >
+                            {joining ? (
+                                <ActivityIndicator color={theme.colors.white} />
+                            ) : (
+                                <Text style={styles.joinBtnText}>
+                                    {hasJoined
+                                        ? "You're in ✓"
+                                        : challenge === null
+                                          ? "Start a challenge →"
+                                          : `Stake ${stakeMon} MON & Join →`}
+                                </Text>
+                            )}
+                        </Pressable>
+                    )}
                     <Text style={styles.trustLine}>🔒 On-chain • Transparent • Fair</Text>
                 </View>
 
                 {/* Invite card */}
+                {challenge !== null && (
                 <View style={styles.inviteCard}>
                     <Text style={styles.inviteTitle}>Invite friends</Text>
                     <Text style={styles.inviteSub}>Copy link and share</Text>
@@ -247,6 +365,7 @@ export default function JoinScreen({
                         </Pressable>
                     </View>
                 </View>
+                )}
 
                 {/* Footer */}
                 <Text style={styles.footer}>
@@ -337,6 +456,15 @@ const styles = StyleSheet.create({
         fontSize: 24,
         color: theme.colors.ink,
     },
+    heroTitle: {
+        fontFamily: theme.font.black,
+        fontSize: 40,
+        lineHeight: 44,
+        color: theme.colors.ink,
+        letterSpacing: -0.5,
+        marginTop: 6,
+        paddingRight: 56,
+    },
     heroTagline: {
         fontFamily: theme.font.heavy,
         fontSize: 28,
@@ -408,6 +536,12 @@ const styles = StyleSheet.create({
         color: theme.colors.muted,
         marginTop: -2,
     },
+    avatarNames: {
+        fontFamily: theme.font.medium,
+        fontSize: 13,
+        color: theme.colors.muted,
+        marginTop: 8,
+    },
     // Stake card
     stakeCard: {
         backgroundColor: theme.colors.lavender,
@@ -451,6 +585,43 @@ const styles = StyleSheet.create({
         fontFamily: theme.font.bold,
         fontSize: 17,
         color: theme.colors.white,
+    },
+    // Insufficient-balance notice (sits on the lavender stake card)
+    notice: {
+        marginTop: 16,
+        borderRadius: 20,
+        borderWidth: 1.5,
+        borderColor: "rgba(17,17,17,0.14)",
+        backgroundColor: theme.colors.lavender,
+        padding: 16,
+    },
+    noticeTitle: {
+        fontFamily: theme.font.bold,
+        fontSize: 16,
+        color: theme.colors.ink,
+    },
+    noticeAddress: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        backgroundColor: theme.colors.white,
+        borderRadius: theme.radius.pill,
+        paddingHorizontal: 14,
+        height: 44,
+        marginTop: 10,
+    },
+    noticeAddressText: {
+        flex: 1,
+        fontFamily: theme.font.semibold,
+        fontSize: 13,
+        color: theme.colors.ink,
+    },
+    noticeCaption: {
+        fontFamily: theme.font.medium,
+        fontSize: 12,
+        color: theme.colors.ink,
+        opacity: 0.65,
+        marginTop: 10,
     },
     trustLine: {
         fontFamily: theme.font.medium,

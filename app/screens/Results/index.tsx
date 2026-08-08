@@ -10,7 +10,6 @@ import {
   View,
 } from "react-native";
 import Avatar from "@/components/ui/Avatar";
-import { MOCK_SETTLED, MOCK_WEEK_STEPS } from "@/lib/mock";
 import { theme } from "@/lib/theme";
 import { Challenge } from "@/lib/types";
 import Confetti from "./Confetti";
@@ -42,20 +41,72 @@ function CircleButton({
 }
 
 export default function ResultsScreen({
-  challenge = MOCK_SETTLED,
-  weekSteps = MOCK_WEEK_STEPS,
+  challenge = null,
+  weekSteps,
   onClaim = () => {},
   claiming = false,
   claimed = false,
   onRunItBack = () => {},
 }: {
-  challenge?: Challenge;
+  challenge?: Challenge | null;
   weekSteps?: { day: string; steps: number }[];
   onClaim?: () => void;
   claiming?: boolean;
   claimed?: boolean;
   onRunItBack?: () => void;
 }) {
+  if (!challenge || !challenge.settled) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.cream }}>
+        <View style={{ padding: 20 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <CircleButton icon="chevron-back" onPress={() => router.back()} />
+            <View style={{ width: 44 }} />
+          </View>
+          <View
+            style={{
+              marginTop: 40,
+              backgroundColor: theme.colors.white,
+              borderRadius: theme.radius.card,
+              borderWidth: 1,
+              borderColor: "rgba(17,17,17,0.06)",
+              padding: 32,
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: theme.font.heavy,
+                fontSize: 22,
+                color: theme.colors.ink,
+                textAlign: "center",
+              }}
+            >
+              Nothing to celebrate yet 👟
+            </Text>
+            <Text
+              style={{
+                fontFamily: theme.font.medium,
+                fontSize: 15,
+                color: theme.colors.muted,
+                marginTop: 4,
+                textAlign: "center",
+              }}
+            >
+              Results show up here once a challenge settles
+            </Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const ranked = [...challenge.participants].sort((a, b) => b.steps - a.steps);
   const winner = ranked[0];
   const runnerUp = ranked[1];
@@ -63,7 +114,7 @@ export default function ResultsScreen({
   const you = challenge.participants.find((p) => p.isYou);
   const youInTopTwo =
     you !== undefined &&
-    (you.address === winner.address || you.address === runnerUp.address);
+    (you.address === winner?.address || you.address === runnerUp?.address);
   const thirdColumn = you !== undefined && !youInTopTwo ? you : ranked[2];
   const youWon = you !== undefined && you.payout > 0n;
 
@@ -157,11 +208,14 @@ export default function ResultsScreen({
         </View>
 
         {/* Podium */}
-        <View style={{ marginTop: 20 }}>
-          <Podium winner={winner} runnerUp={runnerUp} third={thirdColumn} />
-        </View>
+        {winner && runnerUp && thirdColumn ? (
+          <View style={{ marginTop: 20 }}>
+            <Podium winner={winner} runnerUp={runnerUp} third={thirdColumn} />
+          </View>
+        ) : null}
 
         {/* Last place row */}
+        {last ? (
         <View
           style={{
             marginTop: 20,
@@ -224,11 +278,14 @@ export default function ResultsScreen({
             <Text style={{ fontSize: 18, marginTop: 2 }}>🍯</Text>
           </View>
         </View>
+        ) : null}
 
-        {/* Weekly bar chart */}
-        <View style={{ marginTop: 20 }}>
-          <WeekChart weekSteps={weekSteps} />
-        </View>
+        {/* Weekly bar chart — only when real step history exists */}
+        {weekSteps && weekSteps.length > 0 ? (
+          <View style={{ marginTop: 20 }}>
+            <WeekChart weekSteps={weekSteps} />
+          </View>
+        ) : null}
 
         {/* CTAs */}
         <View style={{ marginTop: 20, gap: 12 }}>

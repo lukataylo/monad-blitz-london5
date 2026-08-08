@@ -5,7 +5,6 @@ import {
     Inter_600SemiBold,
 } from "@expo-google-fonts/inter";
 
-import { PrivyProvider } from "@privy-io/expo";
 import {
     DarkTheme,
     DefaultTheme,
@@ -13,9 +12,7 @@ import {
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Slot } from "expo-router";
-import { StyleSheet, Text, View } from "react-native";
 import "react-native-reanimated";
-import { monadTestnet } from "viem/chains";
 
 export default function RootLayout() {
     const colorScheme = useColorScheme();
@@ -37,43 +34,11 @@ export default function RootLayout() {
         return null;
     }
 
-    if (
-        !process.env.EXPO_PUBLIC_PRIVY_APP_ID ||
-        !process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID
-    ) {
-        return (
-            <View style={styles.container}>
-                <Text>PRIVY_APP_ID / PRIVY_CLIENT_ID is not set</Text>
-            </View>
-        );
-    }
-
     return (
         <ThemeProvider
             value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
         >
-            <PrivyProvider
-                clientId={process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID as string}
-                appId={process.env.EXPO_PUBLIC_PRIVY_APP_ID as string}
-                supportedChains={[monadTestnet]}
-                config={{
-                    embedded: {
-                        ethereum: {
-                            createOnLogin: "users-without-wallets",
-                        },
-                    },
-                }}
-            >
-                <Slot />
-            </PrivyProvider>
+            <Slot />
         </ThemeProvider>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-});

@@ -1,4 +1,4 @@
-import { useEmbeddedEthereumWallet } from "@privy-io/expo";
+import * as SecureStore from "expo-secure-store";
 import {
   createContext,
   useCallback,
@@ -11,14 +11,20 @@ import {
   Chain,
   createPublicClient,
   createWalletClient,
-  custom,
+  http,
   PublicClient,
   Transport,
   WalletClient,
 } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { monadTestnet } from "viem/chains";
 
 type ConnectedWalletClient = WalletClient<Transport, Chain, Account>;
+
+// Instant on-device wallet: a private key is generated on first launch and
+// kept in the iOS keychain via SecureStore. No login, no external auth
+// dependency — "open the app, you already have a wallet".
+const WALLET_KEY = "walkthewalk.privateKey";
 
 interface WalletContextType {
   address: `0x${string}` | null;
@@ -30,7 +36,6 @@ interface WalletContextType {
   signMessage: (message: string) => Promise<string | undefined>;
   isReady: boolean;
   // ---- backwards-compat stubs for template screens (SendSheet, WalletHeader).
-  // USDC support was removed; coordinator can prune these + their consumers.
   getMONBalance: () => Promise<bigint | undefined>;
   getUSDCBalance: () => Promise<bigint | undefined>;
   sendUSDC: (
@@ -42,9 +47,7 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const { wallets } = useEmbeddedEthereumWallet();
-  const wallet = wallets[0];
-  const address = (wallet?.address as `0x${string}` | undefined) ?? null;
+  const [address, setAddress] = useState<`0x${string}` | null>(null);
   const [walletClient, setWalletClient] =
     useState<ConnectedWalletClient | null>(null);
   const [publicClient, setPublicClient] = useState<PublicClient | null>(null);
@@ -53,19 +56,26 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      if (!wallet) return;
       try {
-        const provider = await wallet.getProvider();
+        let pk = (await SecureStore.getItemAsync(
+          WALLET_KEY
+        )) as `0x${string}` | null;
+        if (!pk) {
+          pk = generatePrivateKey();
+          await SecureStore.setItemAsync(WALLET_KEY, pk);
+        }
         if (cancelled) return;
+        const account = privateKeyToAccount(pk);
         const pub = createPublicClient({
           chain: monadTestnet,
-          transport: custom(provider),
+          transport: http(),
         });
         const wal = createWalletClient({
-          account: wallet.address as `0x${string}`,
+          account,
           chain: monadTestnet,
-          transport: custom(provider),
+          transport: http(),
         });
+        setAddress(account.address);
         setPublicClient(pub);
         setWalletClient(wal);
       } catch (e) {
@@ -75,10 +85,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     init();
     return () => {
       cancelled = true;
-      setWalletClient(null);
-      setPublicClient(null);
     };
-  }, [wallet]);
+  }, []);
 
   const refreshBalance = useCallback(async () => {
     if (!publicClient || !address) return;
@@ -112,7 +120,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function getUSDCBalance(): Promise<bigint | undefined> {
-    // USDC support removed — stubbed for template screens.
     return 0n;
   }
 
@@ -130,7 +137,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         balance,
         refreshBalance,
         signMessage,
-        isReady: !!(wallet && walletClient && publicClient),
+        isReady: !!(address && walletClient && publicClient),
         getMONBalance,
         getUSDCBalance,
         sendUSDC,

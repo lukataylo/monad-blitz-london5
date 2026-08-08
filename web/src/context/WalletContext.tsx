@@ -34,6 +34,24 @@ export const WALLET_KEY = "walkthewalk.pk";
 // unlock fast.
 const BALANCE_POLL_MS = 15_000;
 
+// The primary public RPC caps at 15 req/s PER IP — a venue full of phones
+// behind one NAT shares that budget. Each device picks a random first
+// provider so the fleet spreads across endpoints instead of stampeding one.
+// drpc stays last: it has an eth_call quirk ("gas exceeds provider limit")
+// that makes it a poor primary but a fine last resort.
+const RPC_ROTATION = (() => {
+    const primaries = [
+        "https://testnet-rpc.monad.xyz",
+        "https://10143.rpc.thirdweb.com",
+    ];
+    const start = Math.floor(Math.random() * primaries.length);
+    return [
+        primaries[start],
+        primaries[(start + 1) % primaries.length],
+        "https://monad-testnet.drpc.org",
+    ];
+})();
+
 interface WalletContextType {
     address: `0x${string}` | null;
     publicClient: PublicClient | null;
@@ -71,20 +89,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             const account = privateKeyToAccount(pk);
             const pub = createPublicClient({
                 chain: monadTestnet,
-                transport: fallback([
-                    http("https://testnet-rpc.monad.xyz"),
-                    http("https://monad-testnet.drpc.org"),
-                    http("https://10143.rpc.thirdweb.com"),
-                ]),
+                transport: fallback(RPC_ROTATION.map((u) => http(u))),
             });
             const wal = createWalletClient({
                 account,
                 chain: monadTestnet,
-                transport: fallback([
-                    http("https://testnet-rpc.monad.xyz"),
-                    http("https://monad-testnet.drpc.org"),
-                    http("https://10143.rpc.thirdweb.com"),
-                ]),
+                transport: fallback(RPC_ROTATION.map((u) => http(u))),
             });
             setAddress(account.address);
             setPublicClient(pub);

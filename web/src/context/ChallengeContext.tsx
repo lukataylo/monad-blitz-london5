@@ -573,16 +573,50 @@ export function ChallengeProvider({
                 // Pre-flight eth_call: Monad charges the full gas LIMIT, so a
                 // doomed tx costs real money. A revert here that matches the
                 // "already done" reason is success — just re-sync state.
-                try {
-                    await simulate();
-                } catch (simErr) {
-                    const msg =
-                        simErr instanceof Error ? simErr.message : "";
-                    if (alreadyDoneRe.test(msg)) {
-                        await afterWrite();
-                        return "already";
+                // Settle has one extra transient revert: "not ended". The
+                // client clock and block.timestamp disagree by a few seconds,
+                // so a settle fired right at the deadline can be early from
+                // the chain's point of view. Retry quietly instead of
+                // erroring — the deadline passes on-chain within seconds.
+                const NOT_ENDED_RETRIES = 5;
+                const NOT_ENDED_WAIT_MS = 4000;
+                let attempt = 0;
+                for (;;) {
+                    try {
+                        await simulate();
+                        break;
+                    } catch (simErr) {
+                        const msg =
+                            simErr instanceof Error ? simErr.message : "";
+                        if (alreadyDoneRe.test(msg)) {
+                            await afterWrite();
+                            return "already";
+                        }
+                        if (
+                            functionName === "settle" &&
+                            /not ended/i.test(msg) &&
+                            attempt < NOT_ENDED_RETRIES
+                        ) {
+                            attempt++;
+                            await new Promise((r) =>
+                                setTimeout(r, NOT_ENDED_WAIT_MS)
+                            );
+                            continue;
+                        }
+                        if (
+                            functionName === "settle" &&
+                            /not ended/i.test(msg)
+                        ) {
+                            // Still early after ~20s of retries — bail
+                            // WITHOUT the raw error wall; the caller retries
+                            // on the next poll tick.
+                            console.warn(
+                                "[settle] chain still says 'not ended' — will retry"
+                            );
+                            return "failed";
+                        }
+                        throw simErr;
                     }
-                    throw simErr;
                 }
                 const t0 = performance.now();
                 const hash = await walletClient.writeContract({

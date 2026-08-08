@@ -62,6 +62,14 @@ function looksLikeMissingChallenge(msg: string): boolean {
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
+/**
+ * Outcome of a settle/claim write.
+ * "already" = the action was already done on-chain (double-claim from another
+ * tab, concurrent settle from another device) — callers should treat it as
+ * success, never as an error.
+ */
+export type TxOutcome = "success" | "already" | "failed";
+
 interface ChallengeContextType {
     activeChallengeId: number | null;
     challenge: Challenge | null;
@@ -84,8 +92,8 @@ interface ChallengeContextType {
     ) => Promise<number | null>;
     join: (id: number) => Promise<void>;
     submitSteps: (steps: number) => Promise<void>;
-    settle: () => Promise<void>;
-    claim: () => Promise<void>;
+    settle: () => Promise<TxOutcome>;
+    claim: () => Promise<TxOutcome>;
 }
 
 const ChallengeContext = createContext<ChallengeContextType | undefined>(
@@ -401,16 +409,43 @@ export function ChallengeProvider({
         async (
             functionName: "settle" | "claim",
             label: string
-        ): Promise<void> => {
+        ): Promise<TxOutcome> => {
             if (demoMode) {
                 console.warn(`[demo] ${label} — contract not configured`);
-                return;
+                return "failed";
             }
             if (!walletClient || !publicClient || activeChallengeId == null)
-                return;
+                return "failed";
+            // WalkPool reverts with "settled" on a repeat settle and "claimed"
+            // on a repeat claim. Both mean the money already moved — surface
+            // them as "already" (success), never as an error banner.
+            const alreadyDoneRe =
+                functionName === "settle" ? /\bsettled\b/i : /\bclaimed\b/i;
+            const simulate = () =>
+                publicClient.simulateContract({
+                    address: WALKPOOL_ADDRESS,
+                    abi: walkPoolAbi,
+                    functionName,
+                    args: [BigInt(activeChallengeId)],
+                    account: walletClient.account,
+                });
             setTxPending(true);
             setError(null);
             try {
+                // Pre-flight eth_call: Monad charges the full gas LIMIT, so a
+                // doomed tx costs real money. A revert here that matches the
+                // "already done" reason is success — just re-sync state.
+                try {
+                    await simulate();
+                } catch (simErr) {
+                    const msg =
+                        simErr instanceof Error ? simErr.message : "";
+                    if (alreadyDoneRe.test(msg)) {
+                        await afterWrite();
+                        return "already";
+                    }
+                    throw simErr;
+                }
                 const hash = await walletClient.writeContract({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
@@ -419,10 +454,33 @@ export function ChallengeProvider({
                     // settle ranks the whole roster in one tx — give it headroom
                     gas: functionName === "settle" ? GAS_SETTLE : GAS_WRITE,
                 });
-                await publicClient.waitForTransactionReceipt({ hash });
+                const receipt = await publicClient.waitForTransactionReceipt({
+                    hash,
+                });
+                if (receipt.status === "reverted") {
+                    // Simulation passed but the tx reverted — almost always a
+                    // race (another device settled / another tab claimed in
+                    // between). Re-simulate to classify the revert reason.
+                    try {
+                        await simulate();
+                    } catch (postErr) {
+                        const msg =
+                            postErr instanceof Error ? postErr.message : "";
+                        if (alreadyDoneRe.test(msg)) {
+                            await afterWrite();
+                            return "already";
+                        }
+                        setError(msg || `${label} failed`);
+                        return "failed";
+                    }
+                    setError(`${label} failed (transaction reverted)`);
+                    return "failed";
+                }
                 await afterWrite();
+                return "success";
             } catch (e) {
                 setError(e instanceof Error ? e.message : `${label} failed`);
+                return "failed";
             } finally {
                 setTxPending(false);
             }

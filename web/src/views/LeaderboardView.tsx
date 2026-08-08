@@ -11,12 +11,11 @@ import { Avatar, formatMon } from "../components/ui";
 import { useChallengeContext } from "../context/ChallengeContext";
 import { useMotionSteps } from "../hooks/useMotionSteps";
 import {
-    loadExerciseChoice,
-    saveExerciseChoice,
+    resolveExercise,
     type StoredExercise,
 } from "../lib/exerciseChoice";
 import { getKindCopy } from "../lib/kindCopy";
-import type { Challenge } from "../lib/types";
+import type { Challenge, Participant } from "../lib/types";
 
 // Camera rep tracker only mounts for kind-1 challenges — keep it out of the
 // main bundle (MediaPipe itself is a further dynamic import inside start()).
@@ -254,6 +253,132 @@ function StepControls({ challenge }: { challenge: Challenge }) {
     );
 }
 
+// ---- race strip (kind 1) ----
+// Compact live-rivals row rendered directly under the camera stage so you
+// can watch the race mid-set without scrolling down to the standings.
+const RACE_STRIP_MAX = 4;
+
+function firstNameOf(name: string): string {
+    return name.replace(/\s*\(you\)\s*$/i, "").split(/\s+/)[0] || "?";
+}
+
+function RaceStrip({ challenge }: { challenge: Challenge }) {
+    const you = challenge.participants.find((p) => p.isYou) ?? null;
+    const rivals = useMemo(
+        () =>
+            challenge.participants
+                .filter((p) => !p.isYou)
+                .sort((a, b) => b.steps - a.steps),
+        [challenge]
+    );
+
+    // Per-rival delta between polls: a chip whose count went up flashes lime
+    // and floats a "+N". Keyed by timestamp so the animation restarts on
+    // every bump even if a previous one is still fading.
+    const prevCounts = useRef<Map<string, number>>(new Map());
+    const [bumps, setBumps] = useState<
+        Record<string, { ts: number; delta: number }>
+    >({});
+    useEffect(() => {
+        const next = new Map<string, number>();
+        const changed: Record<string, { ts: number; delta: number }> = {};
+        for (const p of challenge.participants) {
+            if (p.isYou) continue;
+            const prev = prevCounts.current.get(p.address);
+            next.set(p.address, p.steps);
+            if (prev != null && p.steps > prev) {
+                changed[p.address] = {
+                    ts: Date.now(),
+                    delta: p.steps - prev,
+                };
+            }
+        }
+        prevCounts.current = next;
+        if (Object.keys(changed).length > 0) {
+            setBumps((cur) => ({ ...cur, ...changed }));
+        }
+    }, [challenge]);
+
+    if (rivals.length === 0) return null;
+
+    // The rival closest to your score gets an "ahead/behind by N" caption.
+    let nearest: Participant | null = null;
+    if (you != null) {
+        nearest = rivals.reduce((best, p) =>
+            Math.abs(p.steps - you.steps) < Math.abs(best.steps - you.steps)
+                ? p
+                : best
+        );
+    }
+
+    const shown = rivals.slice(0, RACE_STRIP_MAX);
+    const hidden = rivals.length - shown.length;
+
+    return (
+        <div className="race-strip" aria-label="Rivals, live">
+            {shown.map((p) => {
+                const bump = bumps[p.address];
+                const gap =
+                    you != null && p === nearest ? p.steps - you.steps : null;
+                return (
+                    <div key={p.address} className="race-chip">
+                        {bump != null && (
+                            <span
+                                key={`flash-${bump.ts}`}
+                                className="race-chip-flash"
+                                aria-hidden
+                            />
+                        )}
+                        <Avatar
+                            name={p.name}
+                            address={p.address}
+                            style={{
+                                position: "relative",
+                                width: 28,
+                                height: 28,
+                                fontSize: 12,
+                                flexShrink: 0,
+                            }}
+                        />
+                        <span className="race-chip-main">
+                            <span className="race-chip-name">
+                                {firstNameOf(p.name)}
+                            </span>
+                            <span className="race-chip-count">
+                                {p.steps.toLocaleString()}
+                            </span>
+                            {gap != null && (
+                                <span className="race-chip-gap">
+                                    ·{" "}
+                                    {gap === 0
+                                        ? "tied with you"
+                                        : gap > 0
+                                          ? `ahead by ${gap.toLocaleString()}`
+                                          : `behind by ${(-gap).toLocaleString()}`}
+                                </span>
+                            )}
+                        </span>
+                        {bump != null && (
+                            <span
+                                key={`plus-${bump.ts}`}
+                                className="race-chip-plus"
+                                aria-hidden
+                            >
+                                +{bump.delta.toLocaleString()}
+                            </span>
+                        )}
+                    </div>
+                );
+            })}
+            {hidden > 0 && (
+                <div className="race-chip race-chip--more">
+                    +{hidden} more
+                </div>
+            )}
+        </div>
+    );
+}
+
 /** Kind 1 — camera reps (accumulated in LeaderboardView) feed the total. */
 function RepControls({
     challenge,
@@ -282,21 +407,17 @@ export function LeaderboardView({
     const now = useNow();
     const [inviteCopied, setInviteCopied] = useState(false);
 
-    // ---- kind-1 camera tracker state ----
-    // The exercise itself isn't on-chain (only kind is), so it's a local
-    // choice: creator's pick from the wizard, "squat" default for joiners.
-    const [exercise, setExercise] = useState<StoredExercise>("squat");
-    useEffect(() => {
-        if (activeChallengeId != null) {
-            setExercise(loadExerciseChoice(activeChallengeId));
-        }
-    }, [activeChallengeId]);
-    const pickExercise = (ex: StoredExercise) => {
-        setExercise(ex);
-        if (activeChallengeId != null) {
-            saveExerciseChoice(activeChallengeId, ex);
-        }
-    };
+    // ---- kind-1 camera exercise ----
+    // The exercise itself isn't on-chain (only kind is). No mid-challenge
+    // switching: the creator's stored wizard pick wins, and joiners without
+    // one infer it from the on-chain title (see resolveExercise).
+    const exercise: StoredExercise = useMemo(
+        () =>
+            challenge != null && challenge.kind === 1
+                ? resolveExercise(challenge.id, challenge.title)
+                : "squat",
+        [challenge]
+    );
 
     // Tracker sessions reset to 0 when the camera restarts — accumulate
     // positive deltas so the contribution to the score stays monotonic.
@@ -382,7 +503,7 @@ export function LeaderboardView({
     const maxSteps = Math.max(1, ...sorted.map((p) => p.steps));
     const ended = timeLeft <= 0;
     const isReps = challenge.kind === 1;
-    // Copy tracks the live toggle so the headline flips with the exercise.
+    // Copy tracks the resolved exercise so the headline matches the sport.
     const copy = getKindCopy(challenge.kind, exercise);
 
     return (
@@ -420,29 +541,10 @@ export function LeaderboardView({
                 Shared pot · {formatMon(challenge.pot)} MON
             </div>
 
-            {/* kind 1: camera rep tracker above the standings */}
+            {/* kind 1: camera rep tracker above the standings — the exercise
+                is fixed per challenge (creator's pick / title inference) */}
             {isReps && !ended && (
                 <>
-                    <div className="exercise-toggle">
-                        <button
-                            className={`seg-btn${
-                                exercise === "squat" ? " seg-btn--active" : ""
-                            }`}
-                            onClick={() => pickExercise("squat")}
-                        >
-                            🏋️ Squats
-                        </button>
-                        <button
-                            className={`seg-btn${
-                                exercise === "jumping_jack"
-                                    ? " seg-btn--active"
-                                    : ""
-                            }`}
-                            onClick={() => pickExercise("jumping_jack")}
-                        >
-                            ⭐ Jumping jacks
-                        </button>
-                    </div>
                     <Suspense
                         fallback={
                             <div
@@ -462,6 +564,8 @@ export function LeaderboardView({
                             offCaption={copy.cameraCaption}
                         />
                     </Suspense>
+                    {/* live rivals, visible without scrolling to standings */}
+                    <RaceStrip challenge={challenge} />
                 </>
             )}
 

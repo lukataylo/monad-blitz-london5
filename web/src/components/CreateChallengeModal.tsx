@@ -199,9 +199,13 @@ export function CreateChallengeModal({ onClose }: { onClose: () => void }) {
             return;
         }
         setSubmitFailed(false);
+        // Defensive clamp: rep challenges are always Blitz. `pace` already
+        // derives to Blitz when kind === 1, but never let a stale long pace
+        // leak into a camera challenge even if that derivation changes.
+        const durationSec = kindDef.kind === 1 ? 900 : pace.secs;
         const id = await createChallenge(
             stakeWei,
-            pace.secs,
+            durationSec,
             title.trim().slice(0, MAX_TITLE_LENGTH),
             kindDef.kind
         );

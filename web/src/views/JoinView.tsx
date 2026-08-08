@@ -148,7 +148,11 @@ function InviteHero({
     const count = challenge.participants.length;
     const needsFunds = balance < challenge.stake;
     const isReps = challenge.kind === 1;
-    const copy = copyForChallenge(challenge.kind, challenge.id);
+    const copy = copyForChallenge(
+        challenge.kind,
+        challenge.id,
+        challenge.title
+    );
     const walkerNames = challenge.participants
         .slice(0, 3)
         .map((p) => p.name)
@@ -358,7 +362,8 @@ export function JoinView({
     // Kind-aware wording/coloring for a loaded challenge (walking default).
     const heroCopy = copyForChallenge(
         hasActive ? challenge.kind : 0,
-        activeChallengeId
+        activeChallengeId,
+        hasActive ? challenge.title : undefined
     );
     const heroIsReps = hasActive && challenge.kind === 1;
 

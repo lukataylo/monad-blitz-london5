@@ -743,10 +743,148 @@ button {
   vertical-align: middle;
 }
 
-/* exercise toggle above the camera tracker (kind-1 leaderboard) */
-.exercise-toggle {
+/* ---- race strip: live rivals under the camera (kind-1 leaderboard) ---- */
+.race-strip {
   display: flex;
   gap: 8px;
+  overflow-x: auto;
+  padding: 6px 2px 2px; /* headroom so the floating "+N" isn't clipped */
+  scrollbar-width: none;
+}
+
+.race-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.race-chip {
+  position: relative;
+  z-index: 0; /* stacking context so the lime flash sits under the content */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 8px 12px;
+}
+
+.race-chip--more {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.race-chip-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.race-chip-name {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.race-chip-count {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.race-chip-gap {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* lime flash when a rival's count ticks up between polls */
+.race-chip-flash {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--lime);
+  opacity: 0;
+  animation: race-flash 1.2s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes race-flash {
+  0% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* small "+N" that floats up the chip and fades — anchored just inside the
+   chip and drifting into the strip's top padding, because the strip's
+   overflow-x: auto also clips anything past its padding box */
+.race-chip-plus {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--lime);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  animation: race-plus 1.4s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes race-plus {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  15% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .race-chip-flash {
+    animation: none;
+    opacity: 0;
+  }
+
+  /* keep the "+N" info, drop the movement — plain opacity fade only */
+  .race-chip-plus {
+    animation: race-plus-fade 1.6s ease-out forwards;
+  }
+
+  @keyframes race-plus-fade {
+    0%,
+    70% {
+      opacity: 1;
+      transform: none;
+    }
+    100% {
+      opacity: 0;
+      transform: none;
+    }
+  }
 }
 
 .payout-row {
@@ -1022,4 +1160,241 @@ button {
   letter-spacing: 0.4px;
   color: var(--muted);
   text-align: center;
+}
+
+/* ---- iOS-style bottom tab bar ---- */
+.tab-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background: rgba(247, 242, 229, 0.82);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  backdrop-filter: blur(18px) saturate(1.6);
+  border-top: 0.5px solid rgba(17, 17, 17, 0.12);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab-bar-inner {
+  max-width: 420px;
+  margin: 0 auto;
+  height: 54px;
+  display: flex;
+  align-items: stretch;
+}
+
+.tab-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--muted);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.tab-item:active {
+  transform: scale(0.88);
+}
+
+.tab-item--active {
+  color: var(--ink);
+}
+
+.tab-item:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -3px;
+  border-radius: 12px;
+}
+
+.tab-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-item {
+    transition: none;
+  }
+  .tab-item:active {
+    transform: none;
+  }
+}
+
+/* content must clear the fixed tab bar (54px bar + breathing room + inset) */
+.shell {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+/* ---- wallet view ---- */
+.wallet-balance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.wallet-balance {
+  font-size: 46px;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+  min-width: 0;
+}
+
+.wallet-balance .mon-unit {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin-left: 6px;
+}
+
+.icon-btn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.icon-btn--spin svg {
+  animation: spin 0.7s linear infinite;
+}
+
+.wallet-address {
+  margin-top: 8px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.explorer-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+.wallet-note {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.wallet-email {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.logout-confirm {
+  margin-top: 12px;
+  background: var(--pink);
+  border-radius: 16px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.logout-confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chip-btn--danger {
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
+}
+
+/* ---- results: auto-claim status (appended) ---- */
+.claim-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 56px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid var(--ink);
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.spinner--ink {
+  border-color: rgba(17, 17, 17, 0.2);
+  border-top-color: var(--ink);
+}
+
+.claim-card {
+  background: var(--lime);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 18px 20px;
+  text-align: center;
+  animation: claim-pop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.claim-card-amt {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  line-height: 1.25;
+}
+
+.claim-card-balance {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.countup-num {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes claim-pop {
+  from {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .claim-card {
+    animation: none;
+  }
 }

@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import { CreateChallengeModal } from "./components/CreateChallengeModal";
+import { TabBar } from "./components/TabBar";
 import { useChallengeContext } from "./context/ChallengeContext";
 import { OnboardingModal } from "./onboarding/OnboardingModal";
 import { loadProfile } from "./lib/profile";
 import { JoinView } from "./views/JoinView";
 import { LeaderboardView } from "./views/LeaderboardView";
 import { ResultsView } from "./views/ResultsView";
+import { WalletView } from "./views/WalletView";
 
-type View = "join" | "board" | "results";
+type View = "join" | "board" | "results" | "wallet";
 
 export default function App() {
     const { activeChallengeId, challenge, error, clearError, demoMode } =
@@ -94,29 +96,13 @@ export default function App() {
             {view === "results" && (
                 <ResultsView onBackToJoin={() => setOverride("join")} />
             )}
+            {view === "wallet" && <WalletView />}
 
             {showCreate && (
                 <CreateChallengeModal onClose={() => setShowCreate(false)} />
             )}
 
-            <div style={{ flex: 1 }} />
-            <nav className="nav-links">
-                {(
-                    [
-                        ["join", "Join"],
-                        ["board", "Leaderboard"],
-                        ["results", "Results"],
-                    ] as const
-                ).map(([v, label]) => (
-                    <button
-                        key={v}
-                        className={`nav-link${view === v ? " nav-link--active" : ""}`}
-                        onClick={() => setOverride(v)}
-                    >
-                        {label}
-                    </button>
-                ))}
-            </nav>
+            <TabBar view={view} onSelect={(v) => setOverride(v)} />
         </div>
     );
 }

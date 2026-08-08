@@ -5,7 +5,11 @@
 // for kind 1 comes from lib/exerciseChoice.ts localStorage (creator's pick,
 // "squat" fallback for joiners).
 
-import { loadExerciseChoice, type StoredExercise } from "./exerciseChoice";
+import {
+    loadExerciseChoice,
+    resolveExercise,
+    type StoredExercise,
+} from "./exerciseChoice";
 
 export type ChallengeKind = 0 | 1;
 
@@ -106,15 +110,20 @@ export function getKindCopy(
 
 /**
  * Copy for a loaded challenge: kind from chain, exercise from the local
- * per-challenge choice (falls back to "squat" for joiners).
+ * per-challenge choice — or, when this device has none (joiners), inferred
+ * from the on-chain title when one is passed (see resolveExercise).
  */
 export function copyForChallenge(
     kind: ChallengeKind,
-    challengeId: number | null | undefined
+    challengeId: number | null | undefined,
+    title?: string
 ): KindCopy {
     if (kind !== 1) return STEPS;
+    if (challengeId == null) return getKindCopy(1, "squat");
     return getKindCopy(
         1,
-        challengeId != null ? loadExerciseChoice(challengeId) : "squat"
+        title != null
+            ? resolveExercise(challengeId, title)
+            : loadExerciseChoice(challengeId)
     );
 }

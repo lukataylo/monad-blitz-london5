@@ -44,7 +44,7 @@ export function generatePassword(): string {
         const w = WORDS[randInt(WORDS.length)];
         if (!words.includes(w)) words.push(w);
     }
-    return `${words.join("-")}-${10 + randInt(90)}`;
+    return words.join("-"); // hackathon-simple: two words, no number
 }
 
 // Auto-funding: fire-and-forget POST to the faucet, only when a faucet URL

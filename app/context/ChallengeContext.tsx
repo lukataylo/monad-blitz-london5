@@ -16,6 +16,12 @@ import { parseEventLogs } from "viem";
 
 const ACTIVE_ID_KEY = "activeChallengeId";
 const NAMES_KEY = "names";
+const PROFILE_KEY = "walkthewalk.profile";
+
+export type Profile = {
+    name: string;
+    email: string;
+};
 
 const POLL_INTERVAL_MS = 4000;
 const GAS_WRITE = 300_000n;
@@ -33,6 +39,9 @@ interface ChallengeContextType {
     txPending: boolean;
     /** true when the contract address is not configured — serves mock data */
     demoMode: boolean;
+    /** local signup identity, persisted in AsyncStorage; null until signup */
+    profile: Profile | null;
+    setProfile: (profile: Profile) => void;
     setActiveChallengeId: (id: number | null) => void;
     setName: (addr: string, name: string) => void;
     refresh: () => Promise<void>;
@@ -64,6 +73,7 @@ export function ChallengeProvider({
         number | null
     >(null);
     const [challenge, setChallenge] = useState<Challenge | null>(null);
+    const [profile, setProfileState] = useState<Profile | null>(null);
     const [names, setNames] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -75,20 +85,31 @@ export function ChallengeProvider({
     namesRef.current = names;
     const addressRef = useRef(address);
     addressRef.current = address;
+    const profileRef = useRef(profile);
+    profileRef.current = profile;
 
     // ---- persistence ----
     useEffect(() => {
         (async () => {
             try {
-                const [storedId, storedNames] = await Promise.all([
-                    AsyncStorage.getItem(ACTIVE_ID_KEY),
-                    AsyncStorage.getItem(NAMES_KEY),
-                ]);
+                const [storedId, storedNames, storedProfile] =
+                    await Promise.all([
+                        AsyncStorage.getItem(ACTIVE_ID_KEY),
+                        AsyncStorage.getItem(NAMES_KEY),
+                        AsyncStorage.getItem(PROFILE_KEY),
+                    ]);
                 if (storedId != null && !Number.isNaN(Number(storedId))) {
                     setActiveChallengeIdState(Number(storedId));
                 }
                 if (storedNames) {
                     setNames(JSON.parse(storedNames) as Record<string, string>);
+                }
+                if (storedProfile) {
+                    const parsed = JSON.parse(storedProfile) as Profile;
+                    if (parsed && typeof parsed.name === "string") {
+                        profileRef.current = parsed;
+                        setProfileState(parsed);
+                    }
                 }
             } catch (e) {
                 console.warn("ChallengeContext: failed to load storage", e);
@@ -105,6 +126,16 @@ export function ChallengeProvider({
         } else {
             AsyncStorage.setItem(ACTIVE_ID_KEY, String(id)).catch(() => {});
         }
+    }, []);
+
+    const setProfile = useCallback((next: Profile) => {
+        // Update the ref synchronously so a tx fired right after signup
+        // already carries the name (state commit lags a render).
+        profileRef.current = next;
+        setProfileState(next);
+        AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(next)).catch(
+            () => {}
+        );
     }, []);
 
     const setName = useCallback((addr: string, name: string) => {
@@ -138,19 +169,21 @@ export function ChallengeProvider({
                     }),
                 ]);
                 const [creator, stake, endTime, settled, pot] = info;
-                const [addrs, steps, payouts] = parts;
+                const [addrs, steps, payouts, chainNames] = parts;
                 const you = addressRef.current?.toLowerCase();
                 const localNames = namesRef.current;
                 const participants: Participant[] = addrs.map((addr, i) => {
                     const lower = addr.toLowerCase();
                     const isYou = you != null && lower === you;
+                    const chainName = (chainNames[i] ?? "").trim();
                     return {
                         address: addr,
                         steps: Number(steps[i] ?? 0n),
                         payout: payouts[i] ?? 0n,
                         name: isYou
-                            ? "You"
-                            : localNames[lower] ?? shortAddr(addr),
+                            ? profileRef.current?.name || chainName || "You"
+                            : chainName ||
+                              (localNames[lower] ?? shortAddr(addr)),
                         isYou,
                     };
                 });
@@ -224,7 +257,11 @@ export function ChallengeProvider({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
                     functionName: "createChallenge",
-                    args: [stakeWei, BigInt(durationSec)],
+                    args: [
+                        stakeWei,
+                        BigInt(durationSec),
+                        profileRef.current?.name ?? "",
+                    ],
                     value: stakeWei,
                     // Monad charges on gas_limit, not gas_used — keep it modest.
                     gas: GAS_CREATE,
@@ -286,7 +323,7 @@ export function ChallengeProvider({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
                     functionName: "join",
-                    args: [BigInt(id)],
+                    args: [BigInt(id), profileRef.current?.name ?? ""],
                     value: stake,
                     gas: GAS_WRITE,
                 });
@@ -398,6 +435,8 @@ export function ChallengeProvider({
                 error,
                 txPending,
                 demoMode,
+                profile,
+                setProfile,
                 setActiveChallengeId,
                 setName,
                 refresh,

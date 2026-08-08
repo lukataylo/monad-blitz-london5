@@ -146,7 +146,11 @@ function InviteHero({
     const secsLeft = challenge.endTime - now;
     const ended = secsLeft <= 0;
     const count = challenge.participants.length;
-    const needsFunds = balance < challenge.stake;
+    // Stake alone isn't enough — the join tx costs its full 200k gas LIMIT on
+    // Monad (~0.02 MON). Without headroom, balance === stake unlocks the CTA
+    // and the tx dies with a raw "insufficient funds" error.
+    const GAS_HEADROOM_WEI = 25_000_000_000_000_000n; // 0.025 MON
+    const needsFunds = balance < challenge.stake + GAS_HEADROOM_WEI;
     const isReps = challenge.kind === 1;
     const copy = copyForChallenge(
         challenge.kind,
@@ -216,7 +220,25 @@ function InviteHero({
                 )}
             </div>
 
-            {ended ? (
+            {challenge.participants.some((p) => p.isYou) ? (
+                /* re-opened your own invite link: you're already staked in —
+                   a join CTA here would only revert "already joined" */
+                <div className="card card--lime">
+                    <div className="caption caption--ink">You're in</div>
+                    <div
+                        style={{
+                            fontSize: 20,
+                            fontWeight: 800,
+                            margin: "6px 0 6px",
+                        }}
+                    >
+                        Your stake is down — go get those {copy.unit}!
+                    </div>
+                    <div className="caption caption--ink">
+                        The Leaderboard tab has the live race
+                    </div>
+                </div>
+            ) : ended ? (
                 <div className="card card--pink">
                     <div className="caption caption--ink">Too late</div>
                     <div
@@ -528,6 +550,28 @@ export function JoinView({
                             >
                                 Start your own challenge →
                             </button>
+                        </div>
+                    ) : hasActive &&
+                      challenge.participants.some((p) => p.isYou) ? (
+                        /* already joined: never show a second "Stake & Join"
+                           (it would just revert "already joined" on-chain) */
+                        <div className="card card--lime">
+                            <div className="caption caption--ink">
+                                You're in
+                            </div>
+                            <div
+                                style={{
+                                    fontSize: 22,
+                                    fontWeight: 800,
+                                    margin: "6px 0 14px",
+                                }}
+                            >
+                                You've staked on “
+                                {challenge.title.trim() || `#${challenge.id}`}”
+                            </div>
+                            <div className="caption caption--ink">
+                                Head to the Leaderboard tab to see the race
+                            </div>
                         </div>
                     ) : hasActive ? (
                         <div className="card card--lavender">

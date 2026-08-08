@@ -23,12 +23,28 @@ export default function App() {
 
     const joined = challenge?.participants.some((p) => p.isYou) ?? false;
 
+    // Coarse clock so the app can notice "time's up" on its own: ResultsView
+    // owns the auto-settle/auto-claim chain, but nothing routes there until
+    // the challenge is *settled* — which would never happen automatically.
+    const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
+    const running = joined && challenge != null && !challenge.settled;
+    useEffect(() => {
+        if (!running) return;
+        const t = setInterval(
+            () => setNowSec(Math.floor(Date.now() / 1000)),
+            5000
+        );
+        return () => clearInterval(t);
+    }, [running]);
+    const ended = challenge != null && nowSec >= challenge.endTime;
+
     // Auto-switch: no active id or not joined -> Join; joined & running ->
-    // Leaderboard; settled -> Results. Manual nav links can override.
+    // Leaderboard; ended or settled -> Results (which auto-settles/claims).
+    // Manual nav can override.
     const autoView: View =
         activeChallengeId == null || challenge == null || !joined
             ? "join"
-            : challenge.settled
+            : challenge.settled || ended
               ? "results"
               : "board";
     const view = override ?? autoView;

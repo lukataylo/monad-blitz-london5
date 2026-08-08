@@ -97,6 +97,11 @@ function enqueueDrip(fn) {
 // ---------------------------------------------------------------------------
 const app = express();
 
+// Behind Railway's edge proxy every socket has the proxy's address; trust the
+// first X-Forwarded-For hop so req.ip is the real client and the per-IP
+// rate limit isn't one shared global bucket.
+app.set("trust proxy", 1);
+
 const ALLOWED_ORIGINS = [
   "https://walk-the-walk-production.up.railway.app",
   "http://localhost:5173",
@@ -145,6 +150,9 @@ app.post("/drip", async (req, res) => {
   if (ipRateLimited(ip)) {
     return res.status(429).json({ ok: false, reason: "rate-limited" });
   }
+  // Count the attempt NOW (not after the tx inside the queue): otherwise N
+  // concurrent requests all pass the check before any of them records.
+  recordIpDrip(ip);
 
   if (drippedAddresses.has(addressKey)) {
     return res.status(409).json({ ok: false, reason: "already-funded" });
@@ -167,7 +175,7 @@ app.post("/drip", async (req, res) => {
 
       // Make sure the faucet itself can cover the drip + gas.
       const faucetBalance = await publicClient.getBalance({ address: account.address });
-      const maxFeePerGas = 100_000_000_000n; // generous ceiling for the reserve check
+      const maxFeePerGas = 200_000_000_000n; // reserve ceiling above Monad's ~102 gwei charged limit
       if (faucetBalance < DRIP_WEI + GAS_LIMIT * maxFeePerGas) {
         return { status: 503, body: { ok: false, reason: "faucet-dry" } };
       }
@@ -179,7 +187,6 @@ app.post("/drip", async (req, res) => {
       });
 
       drippedAddresses.add(addressKey);
-      recordIpDrip(ip);
       console.log(`Dripped ${DRIP_MON} MON to ${address} (tx ${txHash})`);
       return { status: 200, body: { ok: true, txHash } };
     });

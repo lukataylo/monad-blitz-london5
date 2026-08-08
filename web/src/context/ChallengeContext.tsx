@@ -30,23 +30,49 @@ function shortAddr(addr: string): string {
     return `${addr.slice(0, 4)}…${addr.slice(-2)}`;
 }
 
+/**
+ * Truncate to a UTF-8 BYTE budget (the contract limits name/title in bytes,
+ * not JS characters — emoji/CJK names would otherwise revert "too long").
+ * Never splits a code point: decodes back ignoring a trailing partial char.
+ */
+function truncateUtf8Bytes(s: string, maxBytes: number): string {
+    const bytes = new TextEncoder().encode(s);
+    if (bytes.length <= maxBytes) return s;
+    let end = maxBytes;
+    // Back off any continuation bytes (0b10xxxxxx) at the cut point.
+    while (end > 0 && (bytes[end] & 0xc0) === 0x80) end--;
+    return new TextDecoder().decode(bytes.slice(0, end));
+}
+
 /** On-chain display name for writes — from the local profile; email never leaves the device. */
 function profileName(): string {
-    return loadProfile()?.name.trim().slice(0, MAX_NAME_LENGTH) ?? "";
+    const name = loadProfile()?.name.trim() ?? "";
+    return truncateUtf8Bytes(name, MAX_NAME_LENGTH);
+}
+
+/** Strictly-a-nonnegative-integer parse; anything else is not a challenge id. */
+function parseChallengeId(v: string | null): number | null {
+    if (v == null || !/^\d{1,10}$/.test(v.trim())) return null;
+    return Number(v.trim());
 }
 
 /** Initial active id: URL param ?c=123 wins (invite link), else localStorage. */
 function initialActiveId(): number | null {
     try {
-        const fromUrl = new URLSearchParams(window.location.search).get("c");
-        if (fromUrl != null && fromUrl !== "" && !Number.isNaN(Number(fromUrl))) {
-            localStorage.setItem(ACTIVE_ID_KEY, String(Number(fromUrl)));
-            return Number(fromUrl);
+        const fromUrl = parseChallengeId(
+            new URLSearchParams(window.location.search).get("c")
+        );
+        if (fromUrl != null) {
+            localStorage.setItem(ACTIVE_ID_KEY, String(fromUrl));
+            // Consume the param: otherwise every refresh resurrects this id
+            // even after the user leaves the challenge ("Run it back").
+            const u = new URL(window.location.href);
+            u.searchParams.delete("c");
+            history.replaceState(null, "", u);
+            return fromUrl;
         }
-        const stored = localStorage.getItem(ACTIVE_ID_KEY);
-        if (stored != null && !Number.isNaN(Number(stored))) {
-            return Number(stored);
-        }
+        const stored = parseChallengeId(localStorage.getItem(ACTIVE_ID_KEY));
+        if (stored != null) return stored;
     } catch (e) {
         console.warn("ChallengeContext: failed to load storage", e);
     }
@@ -91,7 +117,8 @@ interface ChallengeContextType {
         kind: number
     ) => Promise<number | null>;
     join: (id: number) => Promise<void>;
-    submitSteps: (steps: number) => Promise<void>;
+    /** resolves true only when the score actually landed on-chain */
+    submitSteps: (steps: number) => Promise<boolean>;
     settle: () => Promise<TxOutcome>;
     claim: () => Promise<TxOutcome>;
 }
@@ -118,10 +145,16 @@ export function ChallengeProvider({
     const [txPending, setTxPending] = useState(false);
     const [challengeNotFound, setChallengeNotFound] = useState(false);
 
-    const fetchInFlight = useRef(false);
+    // Id currently being fetched (null = none). Per-id, so switching to a new
+    // challenge is never starved by an in-flight poll for the old one.
+    const fetchInFlight = useRef<number | null>(null);
     // Ref so the polling closure always sees the current value without re-subscribing.
     const addressRef = useRef(address);
     addressRef.current = address;
+    // Ref mirror of activeChallengeId: async fetch results must never write
+    // state for a challenge the user has already left (stale-response race).
+    const activeIdRef = useRef(activeChallengeId);
+    activeIdRef.current = activeChallengeId;
 
     const setActiveChallengeId = useCallback((id: number | null) => {
         setActiveChallengeIdState(id);
@@ -142,8 +175,12 @@ export function ChallengeProvider({
     // ---- chain reads ----
     const fetchChallenge = useCallback(
         async (id: number) => {
-            if (!publicClient || fetchInFlight.current) return;
-            fetchInFlight.current = true;
+            if (!publicClient || fetchInFlight.current === id) return;
+            fetchInFlight.current = id;
+            // Any state write below must still be about the ACTIVE challenge —
+            // a slow RPC response for a previous id must never clobber the new
+            // one (it would silently mix rosters/scores across challenges).
+            const stillActive = () => activeIdRef.current === id;
             try {
                 const [info, parts] = await Promise.all([
                     publicClient.readContract({
@@ -163,6 +200,7 @@ export function ChallengeProvider({
                     info;
                 // Unset mapping/array slot -> zero struct: the id was never created.
                 if (creator.toLowerCase() === ZERO_ADDRESS) {
+                    if (!stillActive()) return;
                     setChallenge(null);
                     setChallengeNotFound(true);
                     setError(null);
@@ -189,6 +227,7 @@ export function ChallengeProvider({
                         isYou,
                     };
                 });
+                if (!stillActive()) return;
                 setChallenge({
                     id,
                     creator,
@@ -207,6 +246,7 @@ export function ChallengeProvider({
                 // A revert on getChallenge means the id doesn't exist on-chain —
                 // that's a state, not an error banner.
                 if (looksLikeMissingChallenge(msg)) {
+                    if (!stillActive()) return;
                     setChallenge(null);
                     setChallengeNotFound(true);
                     setError(null);
@@ -218,7 +258,7 @@ export function ChallengeProvider({
                     console.warn("[poll] challenge fetch failed:", msg);
                 }
             } finally {
-                fetchInFlight.current = false;
+                if (fetchInFlight.current === id) fetchInFlight.current = null;
             }
         },
         [publicClient]
@@ -316,7 +356,7 @@ export function ChallengeProvider({
                     args: [
                         stakeWei,
                         BigInt(durationSec),
-                        title,
+                        truncateUtf8Bytes(title, 64), // contract limit is BYTES
                         profileName(),
                         kind,
                     ],
@@ -378,6 +418,35 @@ export function ChallengeProvider({
                     functionName: "getChallenge",
                     args: [BigInt(id)],
                 });
+                // Pre-flight: Monad charges the full gas LIMIT, so a doomed
+                // join burns real MON. "already joined" is success, not error.
+                try {
+                    await publicClient.simulateContract({
+                        address: WALKPOOL_ADDRESS,
+                        abi: walkPoolAbi,
+                        functionName: "join",
+                        args: [BigInt(id), profileName()],
+                        value: stake,
+                        account: walletClient.account,
+                    });
+                } catch (simErr) {
+                    const msg = simErr instanceof Error ? simErr.message : "";
+                    if (/already joined/i.test(msg)) {
+                        // You're in this challenge from another tab/device —
+                        // just make it active.
+                        setActiveChallengeId(id);
+                        await Promise.all([
+                            fetchChallenge(id),
+                            refreshBalance(),
+                        ]);
+                        return;
+                    }
+                    if (/\bended\b/i.test(msg)) {
+                        setError("This challenge has already ended.");
+                        return;
+                    }
+                    throw simErr;
+                }
                 const hash = await walletClient.writeContract({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
@@ -489,16 +558,28 @@ export function ChallengeProvider({
     );
 
     const submitSteps = useCallback(
-        async (steps: number) => {
+        async (steps: number): Promise<boolean> => {
             if (demoMode) {
                 console.warn("[demo] submitSteps — contract not configured");
-                return;
+                return false;
             }
             if (!walletClient || !publicClient || activeChallengeId == null)
-                return;
+                return false;
             setTxPending(true);
             setError(null);
             try {
+                // Pre-flight eth_call: a reverting submit (challenge ended,
+                // lower-than-recorded score) would burn the full gas limit.
+                await publicClient.simulateContract({
+                    address: WALKPOOL_ADDRESS,
+                    abi: walkPoolAbi,
+                    functionName: "submitSteps",
+                    args: [
+                        BigInt(activeChallengeId),
+                        BigInt(Math.floor(steps)),
+                    ],
+                    account: walletClient.account,
+                });
                 const hash = await walletClient.writeContract({
                     address: WALKPOOL_ADDRESS,
                     abi: walkPoolAbi,
@@ -509,12 +590,16 @@ export function ChallengeProvider({
                     ],
                     gas: GAS_WRITE,
                 });
-                await publicClient.waitForTransactionReceipt({ hash });
+                const receipt = await publicClient.waitForTransactionReceipt({
+                    hash,
+                });
                 await afterWrite();
+                return receipt.status === "success";
             } catch (e) {
                 setError(
                     e instanceof Error ? e.message : "submitSteps failed"
                 );
+                return false;
             } finally {
                 setTxPending(false);
             }

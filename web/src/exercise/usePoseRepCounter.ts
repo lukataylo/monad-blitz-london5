@@ -92,6 +92,9 @@ export function usePoseRepCounter(exercise: ExerciseKind): PoseRepCounter {
       canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
     }
     lastVideoTimeRef.current = -1;
+    // Reset the FSM phase: stopping mid-rep (e.g. phase "down") would award
+    // a phantom rep on the first standing frame after a restart.
+    detectorRef.current.reset();
     setDebug("");
     setState("idle");
   }, []);

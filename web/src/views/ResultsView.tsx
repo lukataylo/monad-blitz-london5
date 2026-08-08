@@ -197,6 +197,26 @@ export function ResultsView({
         );
     }
 
+    // Live challenge, tab visited early: never fake a win screen (confetti +
+    // 70/30 podium) for a game that's still running.
+    if (!ended && !isSettled) {
+        return (
+            <>
+                <h1 className="title-heavy">
+                    Still <span className="highlight-lime">running</span>
+                </h1>
+                <div className="card" style={{ textAlign: "center" }}>
+                    <div className="caption" style={{ marginBottom: 4 }}>
+                        Results land here when the timer hits zero
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 700 }}>
+                        Check the Leaderboard tab to see the race
+                    </div>
+                </div>
+            </>
+        );
+    }
+
     const winner = sorted[0];
     const runnerUp = sorted[1] ?? null;
     const you = sorted.find((p) => p.isYou) ?? null;

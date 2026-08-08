@@ -26,7 +26,6 @@ const ExerciseTracker = lazy(() =>
 // Auto-submit cadence: reps blitzes race in real time, steps can amble.
 const AUTO_SYNC_STEPS_MS = 15_000;
 const AUTO_SYNC_REPS_MS = 8_000; // gas economy: each submit costs the gas LIMIT on Monad
-const CHALLENGE_DAYS = 7;
 
 function useNow(): number {
     const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -99,26 +98,37 @@ function ScoreCard({
         }
     }, [you]);
 
+    const ended = Date.now() / 1000 >= challenge.endTime;
+
     const sync = async () => {
         const value = totalRef.current;
         // Guard against overlapping submits: skip while a tx is pending.
         if (value === lastSubmitted.current || pendingRef.current) return;
-        lastSubmitted.current = value;
-        await submitSteps(value);
+        // Only mark as submitted when the tx actually landed — otherwise a
+        // transient RPC failure would show "Synced on-chain" while the final
+        // score never reached the contract (and disable the retry button).
+        const landed = await submitSteps(value);
+        if (landed) lastSubmitted.current = value;
     };
     const syncRef = useRef(sync);
     syncRef.current = sync;
 
     // Auto-submit when the counter changed — every 6s for reps (kind 1) so
-    // the shared board moves in near-real-time, every 15s for steps.
+    // the shared board moves in near-real-time, every 15s for steps. Stops
+    // dead at the deadline: the contract reverts "ended" after endTime, and
+    // Monad charges the full gas limit for every doomed tx.
     const autoSyncMs =
         challenge.kind === 1 ? AUTO_SYNC_REPS_MS : AUTO_SYNC_STEPS_MS;
     useEffect(() => {
-        const t = setInterval(() => syncRef.current(), autoSyncMs);
+        if (ended) return;
+        const t = setInterval(() => {
+            if (Date.now() / 1000 >= challenge.endTime) return;
+            syncRef.current();
+        }, autoSyncMs);
         return () => clearInterval(t);
-    }, [autoSyncMs]);
+    }, [autoSyncMs, ended, challenge.endTime]);
 
-    const dirty = total !== lastSubmitted.current;
+    const dirty = total !== lastSubmitted.current && !ended;
 
     return (
         <div className="card">
@@ -162,9 +172,11 @@ function ScoreCard({
             <div className="caption" style={{ marginTop: 10 }}>
                 {demoMode
                     ? `Contract not deployed — ${unit} stay local`
-                    : dirty
-                      ? `Auto-syncs on-chain every ${autoSyncMs / 1000}s`
-                      : "Synced on-chain"}
+                    : ended
+                      ? "Challenge ended — final score locked"
+                      : dirty
+                        ? `Auto-syncs on-chain every ${autoSyncMs / 1000}s`
+                        : "Synced on-chain"}
             </div>
 
             {/* demo fallback, visually secondary — kind 1 keeps it (and the
@@ -495,11 +507,6 @@ export function LeaderboardView({
     }
 
     const timeLeft = challenge.endTime - now;
-    const daysLeft = Math.max(0, Math.ceil(timeLeft / 86400));
-    const dayN = Math.min(
-        CHALLENGE_DAYS,
-        Math.max(1, CHALLENGE_DAYS - daysLeft + 1)
-    );
     const maxSteps = Math.max(1, ...sorted.map((p) => p.steps));
     const ended = timeLeft <= 0;
     const isReps = challenge.kind === 1;
@@ -510,8 +517,11 @@ export function LeaderboardView({
         <>
             {/* countdown header */}
             <div style={{ textAlign: "center", paddingTop: 4 }}>
+                {/* durations range from a 15-min blitz to a 30-day marathon,
+                    and total duration isn't on-chain — a hardcoded "Day N of 7"
+                    was wrong for most of them. Time left is always true. */}
                 <div className="caption">
-                    Day {dayN} of {CHALLENGE_DAYS}
+                    {timeLeft <= 0 ? "Challenge over" : "Time left"}
                 </div>
                 <div
                     style={{

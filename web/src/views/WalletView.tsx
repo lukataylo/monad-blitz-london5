@@ -149,12 +149,13 @@ export function WalletView() {
                         </button>
                         {dripStatus === "ok" && (
                             <div className="drip-status" style={{ marginTop: 10 }}>
-                                0.5 MON incoming ✓
+                                0.15 MON incoming ✓
                             </div>
                         )}
                         {dripStatus === "already" && (
                             <div className="drip-status" style={{ marginTop: 10 }}>
-                                This wallet was already funded
+                                No drip — wallet already funded, or the faucet
+                                is busy. Try again in a minute.
                             </div>
                         )}
                         {!hasFaucet && (

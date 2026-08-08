@@ -77,7 +77,12 @@ export function OnboardingModal({
         const pw = generatePassword();
         const { privateKey, address } = deriveWallet(email, pw);
         generatedPw.current = pw;
-        localStorage.setItem(WALLET_KEY, privateKey);
+        try {
+            localStorage.setItem(WALLET_KEY, privateKey);
+        } catch {
+            // Safari private mode etc. — without storage the derived wallet
+            // can't persist; the in-memory swap below still works this session.
+        }
         const profile: Profile = { name: name.trim(), email: email.trim() };
         saveProfile(profile);
         savedProfile.current = profile;
@@ -114,8 +119,23 @@ export function OnboardingModal({
     const submitLogin = () => {
         setTouched(true);
         if (!canLogin) return;
+        // A mistyped password derives a DIFFERENT (empty) wallet and silently
+        // discards the current key. If the current wallet holds funds, make
+        // the switch explicit before overwriting it.
+        if (
+            balance > 0n &&
+            !window.confirm(
+                `This wallet holds ${fmtMon(balance)} MON. Logging in switches to the wallet for these credentials and abandons the current one. Continue?`
+            )
+        ) {
+            return;
+        }
         const { privateKey } = deriveWallet(email, loginPassword.trim());
-        localStorage.setItem(WALLET_KEY, privateKey);
+        try {
+            localStorage.setItem(WALLET_KEY, privateKey);
+        } catch {
+            /* storage unavailable — reload will fall back to a fresh key */
+        }
         const existing = loadProfile();
         saveProfile({
             name: existing?.name ?? email.trim().split("@")[0],
@@ -290,7 +310,7 @@ export function OnboardingModal({
                                     </div>
                                     <input
                                         className="field-input field-input--mono"
-                                        placeholder="lime-walrus-otter-42"
+                                        placeholder="lime-walrus"
                                         value={loginPassword}
                                         onChange={(e) =>
                                             setLoginPassword(e.target.value)

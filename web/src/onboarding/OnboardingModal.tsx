@@ -140,10 +140,13 @@ export function OnboardingModal({
 
     return (
         <div
-            className="modal-overlay"
+            className="modal-overlay modal-overlay--full"
             onClick={step === "reveal" || mandatory ? undefined : onClose}
         >
-            <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+            <div
+                className="modal-sheet modal-sheet--full"
+                onClick={(e) => e.stopPropagation()}
+            >
                 {step === "form" && (
                     <>
                         <div className="modal-title">Join the club</div>

@@ -329,6 +329,9 @@ export function JoinView({
 
     const [code, setCode] = useState("");
     const [linkCopied, setLinkCopied] = useState(false);
+    // Progressive disclosure: "join by code" starts hidden behind a link so
+    // a first-time visitor sees one primary action, not three at once.
+    const [showCodeEntry, setShowCodeEntry] = useState(false);
     // Once the visitor bails from an invite ("start your own"), stay bailed.
     const [inviteDismissed, setInviteDismissed] = useState(false);
     // Profile gate: first join/create asks for name + email, then continues
@@ -408,45 +411,32 @@ export function JoinView({
                     requireProfile={requireProfile}
                     onStartOwn={startOwnFromInvite}
                 />
-            ) : (
+            ) : hasActive ? (
                 <>
-                    {/* hero — real pot when a challenge is loaded, the app
-                        promise otherwise. Never invented numbers. Rep
+                    {/* hero — real pot for the loaded challenge. Rep
                         challenges get the pink scheme + sport sticker. */}
                     <div
                         className={`card card--sticker ${
                             heroIsReps ? "card--pink" : "card--lime"
                         }`}
                     >
-                        {hasActive && (
-                            <span className="hero-sticker" aria-hidden>
-                                {heroCopy.emoji}
-                            </span>
-                        )}
+                        <span className="hero-sticker" aria-hidden>
+                            {heroCopy.emoji}
+                        </span>
                         <div className="caption caption--ink">
-                            {hasActive
-                                ? challenge.title.trim() ||
-                                  `Challenge #${activeChallengeId}`
-                                : "Walk The Walk"}
+                            {challenge.title.trim() ||
+                                `Challenge #${activeChallengeId}`}
                         </div>
                         <div
                             style={{
-                                fontSize: hasActive ? 52 : 40,
+                                fontSize: 52,
                                 fontWeight: 800,
                                 letterSpacing: -1,
                                 lineHeight: 1.08,
                                 margin: "8px 0 6px",
                             }}
                         >
-                            {hasActive ? (
-                                `${formatMon(challenge.pot)} MON`
-                            ) : (
-                                <>
-                                    {heroCopy.tagline[0]}
-                                    <br />
-                                    {heroCopy.tagline[1]}
-                                </>
-                            )}
+                            {formatMon(challenge.pot)} MON
                         </div>
                         <div
                             style={{
@@ -455,41 +445,26 @@ export function JoinView({
                                 opacity: 0.75,
                             }}
                         >
-                            {hasActive ? heroCopy.potSub : heroCopy.heroSub}
+                            {heroCopy.potSub}
                         </div>
                     </div>
 
-                    {/* chips — real facts, or the static how-it-works explainer */}
+                    {/* chips — real facts about the loaded challenge */}
                     <div className="chips-row">
-                        {hasActive ? (
-                            <>
-                                {heroIsReps && (
-                                    <span className="chip">
-                                        {heroCopy.sportChip}
-                                    </span>
-                                )}
-                                <span className="chip">
-                                    {formatMon(challenge.stake, 3)} MON stake
-                                </span>
-                                <span className="chip">
-                                    {challenge.participants.length}{" "}
-                                    {heroCopy.verb}
-                                </span>
-                                <span className="chip">Winner takes 70%</span>
-                            </>
-                        ) : (
-                            <>
-                                <span className="chip">Winner takes 70%</span>
-                                <span className="chip">Runner-up gets 30%</span>
-                                <span className="chip">
-                                    Most {heroCopy.unit} wins
-                                </span>
-                            </>
+                        {heroIsReps && (
+                            <span className="chip">{heroCopy.sportChip}</span>
                         )}
+                        <span className="chip">
+                            {formatMon(challenge.stake, 3)} MON stake
+                        </span>
+                        <span className="chip">
+                            {challenge.participants.length} {heroCopy.verb}
+                        </span>
+                        <span className="chip">Winner takes 70%</span>
                     </div>
 
                     {/* avatars — only real participants */}
-                    {hasActive && challenge.participants.length > 0 && (
+                    {challenge.participants.length > 0 && (
                         <div className="avatar-row">
                             {challenge.participants.slice(0, 6).map((p) => (
                                 <Avatar
@@ -502,9 +477,8 @@ export function JoinView({
                     )}
 
                     {/* CTA card */}
-                    {hasActive &&
-                    (challenge.settled ||
-                        challenge.endTime <= Math.floor(Date.now() / 1000)) ? (
+                    {challenge.settled ||
+                    challenge.endTime <= Math.floor(Date.now() / 1000) ? (
                         <div className="card card--pink">
                             <div className="caption caption--ink">
                                 Challenge over
@@ -529,7 +503,7 @@ export function JoinView({
                                 Start your own challenge →
                             </button>
                         </div>
-                    ) : hasActive ? (
+                    ) : (
                         <div className="card card--lavender">
                             <div className="caption caption--ink">
                                 Your stake
@@ -571,34 +545,124 @@ export function JoinView({
                                 Start your own challenge
                             </button>
                         </div>
-                    ) : (
-                        <div className="card card--lavender">
-                            <div className="caption caption--ink">
-                                Get started
-                            </div>
-                            <div
-                                style={{
-                                    fontSize: 15,
-                                    fontWeight: 600,
-                                    opacity: 0.75,
-                                    margin: "6px 0 14px",
-                                }}
+                    )}
+
+                    {/* invite — only shown once there's a real link to share */}
+                    <div>
+                        <div className="caption" style={{ marginBottom: 8 }}>
+                            Invite your crew
+                        </div>
+                        <div className="invite-box">
+                            <span className="invite-link">{inviteLink}</span>
+                            <button className="chip-btn" onClick={copyInvite}>
+                                {linkCopied ? "Copied!" : "Copy"}
+                            </button>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                /* onboarding-style landing: headline up top, a full-bleed
+                   illustration band at the bottom, one primary action riding
+                   on it. Everything else is a step away. */
+                <div className="onboard">
+                    <div className="onboard-copy">
+                        <div className="caption caption--ink">
+                            Walk The Walk
+                        </div>
+                        <h1 className="onboard-title">
+                            {heroCopy.tagline[0]}
+                            <br />
+                            {heroCopy.tagline[1]}
+                        </h1>
+                        <p className="onboard-sub">{heroCopy.heroSub}</p>
+                    </div>
+
+                    {/* illustration band — bleeds past the shell padding and
+                        is cropped by the band edges, like the reference */}
+                    <div className="onboard-band">
+                        {/* shapes sit within x≈60–360 of the viewBox so the
+                            "slice" crop can't shave the accent colours off */}
+                        <svg
+                            className="onboard-art"
+                            viewBox="0 0 420 300"
+                            preserveAspectRatio="xMidYMax slice"
+                            aria-hidden
+                        >
+                            <circle cx="298" cy="112" r="62" fill="var(--pink)" />
+                            <circle cx="96" cy="212" r="112" fill="var(--ochre)" />
+                            <circle
+                                cx="332"
+                                cy="214"
+                                r="124"
+                                fill="var(--lavender)"
+                            />
+                            <circle cx="206" cy="252" r="158" fill="var(--lime)" />
+
+                            {/* hand-drawn face — the curves are deliberately
+                                uneven (eyes at slightly different heights,
+                                off-centre grin) so it reads as drawn, not
+                                geometric */}
+                            <g
+                                fill="none"
+                                stroke="var(--ink)"
+                                strokeWidth="6.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                transform="rotate(-1.5 206 160)"
                             >
-                                Set the stakes, pick a duration, invite your
-                                crew.
-                            </div>
+                                <path d="M171 139 C177 124 191 123 198 137" />
+                                <path d="M216 137 C223 122 237 123 242 139" />
+                                <path d="M159 158 C181 195 233 197 254 156" />
+                            </g>
+                        </svg>
+
+                        <div className="onboard-cta">
+                            {/* join by code — secondary path, hidden behind a
+                                link until asked for so the landing state has
+                                one primary action, not several competing */}
+                            {showCodeEntry && (
+                                <div className="onboard-code">
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                        <input
+                                            className="code-input"
+                                            inputMode="numeric"
+                                            placeholder="Challenge id, e.g. 3"
+                                            autoFocus
+                                            value={code}
+                                            onChange={(e) =>
+                                                setCode(e.target.value)
+                                            }
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter")
+                                                    joinByCode();
+                                            }}
+                                        />
+                                        <button
+                                            className="chip-btn"
+                                            onClick={joinByCode}
+                                            disabled={
+                                                txPending ||
+                                                demoMode ||
+                                                code.trim() === ""
+                                            }
+                                        >
+                                            Join
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             <button
                                 className="pill-btn"
-                                onClick={() =>
-                                    requireProfile(onStartChallenge)
-                                }
+                                onClick={() => requireProfile(onStartChallenge)}
                                 disabled={txPending || demoMode}
                             >
                                 Start a challenge →
                             </button>
-                            {demoMode && (
+
+                            {demoMode ? (
                                 <div
-                                    className="caption"
+                                    className="caption caption--ink"
                                     style={{
                                         marginTop: 10,
                                         textAlign: "center",
@@ -607,72 +671,19 @@ export function JoinView({
                                     Contract not deployed yet — transactions
                                     disabled
                                 </div>
+                            ) : (
+                                !showCodeEntry && (
+                                    <button
+                                        className="text-btn onboard-code-link"
+                                        onClick={() => setShowCodeEntry(true)}
+                                    >
+                                        Have an invite code?
+                                    </button>
+                                )
                             )}
                         </div>
-                    )}
-
-                    {/* invite */}
-                    <div>
-                        <div className="caption" style={{ marginBottom: 8 }}>
-                            Invite your crew
-                        </div>
-                        {inviteLink ? (
-                            <div className="invite-box">
-                                <span className="invite-link">
-                                    {inviteLink}
-                                </span>
-                                <button
-                                    className="chip-btn"
-                                    onClick={copyInvite}
-                                >
-                                    {linkCopied ? "Copied!" : "Copy"}
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="invite-box">
-                                <span className="invite-link">
-                                    Start a challenge to get an invite link
-                                </span>
-                            </div>
-                        )}
                     </div>
-
-                    {/* join by code */}
-                    <div>
-                        <div className="caption" style={{ marginBottom: 8 }}>
-                            Have a code?
-                        </div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                            <input
-                                className="code-input"
-                                inputMode="numeric"
-                                placeholder="Challenge id, e.g. 3"
-                                value={code}
-                                onChange={(e) => setCode(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") joinByCode();
-                                }}
-                            />
-                            <button
-                                className="chip-btn"
-                                onClick={joinByCode}
-                                disabled={
-                                    txPending ||
-                                    demoMode ||
-                                    code.trim() === ""
-                                }
-                            >
-                                Join
-                            </button>
-                        </div>
-                        {demoMode && (
-                            <div className="caption" style={{ marginTop: 8 }}>
-                                Joining is disabled until the contract is
-                                deployed
-                            </div>
-                        )}
-                    </div>
-                </>
+                </div>
             )}
 
             {showProfile && (

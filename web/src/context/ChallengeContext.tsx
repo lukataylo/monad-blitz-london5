@@ -254,6 +254,28 @@ export function ChallengeProvider({
         return () => clearInterval(interval);
     }, [activeChallengeId, demoMode, publicClient, fetchChallenge, pollMs]);
 
+    // ---- event push: refetch the moment ANY device submits a score ----
+    // During a live rep blitz, polling alone leaves multi-second gaps between
+    // devices. Watching StepsSubmitted logs (2s log-poll, far cheaper than a
+    // full state read) makes everyone's board jump within ~2s of a submit.
+    const repsLive = challenge?.kind === 1 && !challenge.settled;
+    useEffect(() => {
+        if (!repsLive || activeChallengeId == null || demoMode || !publicClient)
+            return;
+        const unwatch = publicClient.watchContractEvent({
+            address: WALKPOOL_ADDRESS,
+            abi: walkPoolAbi,
+            eventName: "StepsSubmitted",
+            args: { id: BigInt(activeChallengeId) },
+            pollingInterval: 2_000,
+            onLogs: () => fetchChallenge(activeChallengeId),
+            onError: () => {
+                /* transient RPC errors — the regular poll still covers us */
+            },
+        });
+        return unwatch;
+    }, [repsLive, activeChallengeId, demoMode, publicClient, fetchChallenge]);
+
     // ---- writes ----
     const afterWrite = useCallback(async () => {
         await Promise.all([refresh(), refreshBalance()]);

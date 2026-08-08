@@ -402,7 +402,7 @@ export function OnboardingModal({
                             <div className="drip-status">
                                 {dripStatus === "pending"
                                     ? "Topping up your wallet…"
-                                    : "Topping up your wallet… ✓ 0.15 MON incoming"}
+                                    : "Topping up your wallet… ✓ test MON incoming"}
                             </div>
                         )}
                         <button className="pill-btn" onClick={finishReveal}>

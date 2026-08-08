@@ -174,7 +174,7 @@ export function WalletView() {
                         </button>
                         {dripStatus === "ok" && (
                             <div className="drip-status" style={{ marginTop: 10 }}>
-                                0.15 MON incoming ✓
+                                Test MON incoming ✓
                             </div>
                         )}
                         {dripStatus === "already" && (

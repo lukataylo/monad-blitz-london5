@@ -49,6 +49,11 @@ export function InviteQR({
         <div className="invite-qr">
             <canvas ref={canvasRef} width={size} height={size} />
             <div className="invite-qr-caption">{caption}</div>
+            {/* one code, whole crew: every scanner joins the same pool with
+                their own stake — no per-person links needed on stage */}
+            <div className="invite-qr-caption invite-qr-caption--sub">
+                Everyone scans the same code — each stake grows the pot
+            </div>
         </div>
     );
 }

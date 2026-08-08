@@ -22,7 +22,11 @@ export interface ChallengeSummary {
     yourRank: number | null;
 }
 
-const REFRESH_MS = 20_000;
+// Gentle: this feeds overview lists only, and it costs 2 reads PER TRACKED
+// ID per tick — at 20s it was a real contributor to public-RPC 429s once a
+// device had a few challenges. The active challenge has its own fast poll.
+const REFRESH_MS = 45_000;
+const MAX_FETCHED_IDS = 12;
 const ZERO = "0x0000000000000000000000000000000000000000";
 
 /**
@@ -53,11 +57,13 @@ export function useMyChallenges(): {
 
         const load = async () => {
             if (inFlight.current) return;
+            // Backgrounded tab: don't burn rate limit on an invisible list.
+            if (document.hidden) return;
             inFlight.current = true;
             try {
                 const you = address?.toLowerCase();
                 const results = await Promise.all(
-                    ids.map(async (id) => {
+                    ids.slice(0, MAX_FETCHED_IDS).map(async (id) => {
                         try {
                             const [info, parts] = await Promise.all([
                                 publicClient.readContract({

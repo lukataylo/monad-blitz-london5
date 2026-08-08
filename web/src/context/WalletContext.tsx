@@ -28,7 +28,11 @@ type ConnectedWalletClient = WalletClient<Transport, Chain, Account>;
 // call reloadWallet() to pick it up without a page refresh.
 export const WALLET_KEY = "walkthewalk.pk";
 
-const BALANCE_POLL_MS = 10_000;
+// 15s (was 10s): trimmed alongside other poll cadences after production hit
+// public-RPC 429s with several devices connected at once. Post-drip and
+// post-write paths call refreshBalance() directly, so funding moments still
+// unlock fast.
+const BALANCE_POLL_MS = 15_000;
 
 interface WalletContextType {
     address: `0x${string}` | null;

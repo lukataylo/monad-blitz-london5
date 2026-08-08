@@ -68,6 +68,17 @@ function initialActiveId(): number | null {
         );
         if (fromUrl != null) {
             localStorage.setItem(ACTIVE_ID_KEY, String(fromUrl));
+            // Keep the invite context for THIS TAB: login does a full
+            // location.reload(), and stripping ?c= below would otherwise
+            // erase the invite mid-onboarding — the second phone then lands
+            // on the generic home screen with no join CTA at all.
+            // sessionStorage survives the reload but dies with the tab, so
+            // old invites never resurrect on later visits.
+            try {
+                sessionStorage.setItem("walkthewalk.invitedId", String(fromUrl));
+            } catch {
+                /* storage unavailable — URL param already consumed */
+            }
             // Consume the param: otherwise every refresh resurrects this id
             // even after the user leaves the challenge ("Run it back").
             const u = new URL(window.location.href);
@@ -504,7 +515,20 @@ export function ChallengeProvider({
                 setActiveChallengeId(id);
                 await Promise.all([fetchChallenge(id), refreshBalance()]);
             } catch (e) {
-                setError(e instanceof Error ? e.message : "join failed");
+                const msg = e instanceof Error ? e.message : "join failed";
+                // A raw viem dump helps nobody mid-demo — map the two
+                // common failures to something actionable.
+                if (/insufficient|exceeds the balance/i.test(msg)) {
+                    setError(
+                        "Not enough MON to cover the stake + gas. Top up in the Wallet tab and try again."
+                    );
+                } else if (/429|rate limit/i.test(msg)) {
+                    setError(
+                        "The network is busy — wait a few seconds and tap Join again."
+                    );
+                } else {
+                    setError(msg);
+                }
             } finally {
                 setTxPending(false);
             }

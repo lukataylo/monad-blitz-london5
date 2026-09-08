@@ -1,5 +1,7 @@
 # Forfit 🚶💰
 
+![Forfit — put your money where your movement is. Friends stake MON on an exercise challenge: stake, move, win.](docs/banner.jpeg)
+
 **Stake crypto with your crew. Most steps (or squats) takes the pot.**
 
 **Forfit turns your movements into stakes.** Throw MON into a pot with your friends, pick your format — a 15-minute Blitz, a week-long Classic, or a 1-minute camera squat-off — and race. Your phone counts steps from motion, your camera counts reps with on-device pose detection, and there's no "+1" button to tap your way to a win. Scores stream on-chain while you move, and the instant the timer hits zero the contract pays out on its own: 70% to the winner, 30% to the runner-up, straight to their wallets. No host, no escrow, no trust. No extension or seed phrase either — an email and a password derive your wallet in the browser, and the faucet funds it before you've finished reading this. Get fit, or forfeit.
